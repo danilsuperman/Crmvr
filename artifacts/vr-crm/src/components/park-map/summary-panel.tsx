@@ -34,35 +34,35 @@ export function SummaryPanel({ zones, zoneStates, totalBookingsToday }: SummaryP
   const items = [
     {
       icon: Activity,
-      label: "Active Zones",
+      label: "Активных зон",
       value: `${activeZones} / ${zones.length}`,
       color: "text-cyan-400",
       bg: "bg-cyan-500/10",
     },
     {
       icon: Users,
-      label: "Guests Now",
+      label: "Гостей сейчас",
       value: totalGuests.toString(),
       color: "text-violet-400",
       bg: "bg-violet-500/10",
     },
     {
       icon: Clock,
-      label: "Next Hour",
+      label: "В течение часа",
       value: upcomingCount.toString(),
       color: "text-blue-400",
       bg: "bg-blue-500/10",
     },
     {
       icon: AlertTriangle,
-      label: "Late Groups",
+      label: "Опаздывают",
       value: delayedGroups.toString(),
       color: delayedGroups > 0 ? "text-red-400" : "text-muted-foreground",
       bg: delayedGroups > 0 ? "bg-red-500/10" : "bg-muted/10",
     },
     {
       icon: Zap,
-      label: "Free Zones",
+      label: "Свободных зон",
       value: freeZones.toString(),
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
@@ -97,7 +97,7 @@ export function SummaryPanel({ zones, zoneStates, totalBookingsToday }: SummaryP
 
       {/* Load bar */}
       <div className="flex items-center gap-2 ml-auto shrink-0">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Load</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Загрузка</span>
         <div className="w-24 h-1.5 rounded-full bg-white/5 overflow-hidden">
           <motion.div
             className={cn(

@@ -3,17 +3,17 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", icon: Home, label: "Mission Control" },
-  { href: "/clients", icon: Users, label: "Clients" },
-  { href: "/events", icon: Calendar, label: "Events" },
-  { href: "/settings", icon: Settings, label: "Settings" },
+  { href: "/", icon: Home, label: "Главная" },
+  { href: "/clients", icon: Users, label: "Клиенты" },
+  { href: "/events", icon: Calendar, label: "Мероприятия" },
+  { href: "/settings", icon: Settings, label: "Настройки" },
 ];
 
 export function Sidebar() {
   const [location] = useLocation();
 
   return (
-    <aside className="w-16 md:w-64 border-r border-border bg-sidebar h-full flex flex-col transition-all duration-300">
+    <aside className="hidden md:flex w-16 md:w-64 border-r border-border bg-sidebar h-full flex-col transition-all duration-300">
       <div className="h-16 flex items-center justify-center md:justify-start md:px-6 border-b border-border">
         <div className="w-8 h-8 rounded bg-primary flex items-center justify-center font-bold text-primary-foreground text-xl">
           V
@@ -62,7 +62,7 @@ export function Sidebar() {
               <User className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="hidden md:block ml-3 overflow-hidden">
-              <p className="text-sm font-medium truncate">Admin User</p>
+              <p className="text-sm font-medium truncate">Администратор</p>
               <p className="text-xs text-muted-foreground truncate">admin@vrpark.co</p>
             </div>
           </div>

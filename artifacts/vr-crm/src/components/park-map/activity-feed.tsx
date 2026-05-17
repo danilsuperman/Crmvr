@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Activity, CheckCircle2, AlertTriangle, Info, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { ru } from "date-fns/locale";
 
 interface ActivityItem {
   id: string;
@@ -47,11 +48,11 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 shrink-0">
         <Activity className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Activity
+          Активность
         </span>
         {items.length > 0 && (
           <span className="ml-auto text-[10px] text-muted-foreground">
-            {items.length} events
+            {items.length} событий
           </span>
         )}
       </div>
@@ -60,7 +61,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-2">
             <Activity className="w-6 h-6 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground/50">No activity yet</p>
+            <p className="text-xs text-muted-foreground/50">Нет активности</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -85,7 +86,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
                       {item.message}
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {formatDistanceToNow(item.time, { addSuffix: true })}
+                      {formatDistanceToNow(item.time, { addSuffix: true, locale: ru })}
                     </p>
                   </div>
                 </motion.div>

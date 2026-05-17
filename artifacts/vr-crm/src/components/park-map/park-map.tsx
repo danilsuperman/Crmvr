@@ -59,16 +59,16 @@ export function ParkMap({ zones, bookings, onBookingClick, onZoneClick }: ParkMa
       {/* Main content: map + feed */}
       <div className="flex flex-1 overflow-hidden">
         {/* Zone grid */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-20 md:pb-4">
           {zones.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground text-sm">No zones configured</p>
+              <p className="text-muted-foreground text-sm">Зоны не настроены</p>
             </div>
           ) : (
             <motion.div
-              className="grid gap-4"
+              className="grid gap-3 md:gap-4"
               style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
               }}
             >
               {zones.map((zone, i) => {
@@ -100,8 +100,8 @@ export function ParkMap({ zones, bookings, onBookingClick, onZoneClick }: ParkMa
           )}
         </div>
 
-        {/* Right activity feed */}
-        <div className="w-64 shrink-0 border-l border-border/50 bg-background/30 backdrop-blur overflow-hidden flex flex-col">
+        {/* Right activity feed — hidden on mobile */}
+        <div className="hidden md:flex w-64 shrink-0 border-l border-border/50 bg-background/30 backdrop-blur overflow-hidden flex-col">
           <ActivityFeed items={activityItems} />
         </div>
       </div>

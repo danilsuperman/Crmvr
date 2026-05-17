@@ -91,7 +91,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
               {formatTimer(state.minutesRemaining)}
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
-              remaining
+              осталось
             </div>
           </motion.div>
         )}
@@ -107,7 +107,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
               +{state.minutesOverdue}m
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
-              late
+              опоздание
             </div>
           </motion.div>
         )}
@@ -123,7 +123,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
               {state.minutesUntilNext}m
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
-              until arrival
+              до прихода
             </div>
           </motion.div>
         )}
@@ -137,7 +137,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
           >
             <Sparkles className="w-8 h-8 text-amber-400 mx-auto mb-1" />
             <div className="text-xs text-amber-400 uppercase tracking-wider">
-              Cleaning
+              Уборка
             </div>
           </motion.div>
         )}
@@ -151,7 +151,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
           >
             <Zap className="w-8 h-8 text-emerald-400 mx-auto mb-1 opacity-60" />
             <div className="text-xs text-emerald-400 uppercase tracking-wider">
-              Available
+              Свободно
             </div>
           </motion.div>
         )}
@@ -170,7 +170,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
         ) : (
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Users className="w-3 h-3" />
-            <span>cap {zone.capacity}</span>
+            <span>макс {zone.capacity}</span>
           </div>
         )}
 
@@ -213,7 +213,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
       {state.nextBooking && state.status !== "waiting" && (
         <div className="relative z-10 flex items-center gap-1.5 text-[10px] text-muted-foreground border-t border-border/50 pt-2 mt-auto">
           <Clock className="w-3 h-3 shrink-0" />
-          <span>Next: {formatTime(state.nextBooking.startTime)}</span>
+          <span>Следующий: {formatTime(state.nextBooking.startTime)}</span>
           {state.nextBooking.clientName && (
             <>
               <ChevronRight className="w-2.5 h-2.5 shrink-0" />

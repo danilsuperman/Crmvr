@@ -1,4 +1,5 @@
 import { Sidebar } from "./sidebar";
+import { BottomNav } from "./bottom-nav";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -8,6 +9,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent pointer-events-none" />
         {children}
       </main>
+      <BottomNav />
     </div>
   );
 }

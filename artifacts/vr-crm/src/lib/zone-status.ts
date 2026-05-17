@@ -202,7 +202,7 @@ export const STATUS_CONFIG: Record<
   }
 > = {
   free: {
-    label: "Free",
+    label: "Свободно",
     color: "text-emerald-400",
     bg: "bg-emerald-500/10",
     border: "border-emerald-500/20",
@@ -210,7 +210,7 @@ export const STATUS_CONFIG: Record<
     pulse: false,
   },
   active: {
-    label: "In Session",
+    label: "Идёт игра",
     color: "text-cyan-400",
     bg: "bg-cyan-500/10",
     border: "border-cyan-500/30",
@@ -218,7 +218,7 @@ export const STATUS_CONFIG: Record<
     pulse: false,
   },
   waiting: {
-    label: "Awaiting Guests",
+    label: "Ожидают гостей",
     color: "text-violet-400",
     bg: "bg-violet-500/10",
     border: "border-violet-500/30",
@@ -226,7 +226,7 @@ export const STATUS_CONFIG: Record<
     pulse: true,
   },
   cleaning: {
-    label: "Cleaning",
+    label: "Уборка",
     color: "text-amber-400",
     bg: "bg-amber-500/10",
     border: "border-amber-500/30",
@@ -234,7 +234,7 @@ export const STATUS_CONFIG: Record<
     pulse: false,
   },
   delayed: {
-    label: "Group Late",
+    label: "Группа опаздывает",
     color: "text-red-400",
     bg: "bg-red-500/10",
     border: "border-red-500/40",
@@ -242,7 +242,7 @@ export const STATUS_CONFIG: Record<
     pulse: true,
   },
   overdue: {
-    label: "Overdue",
+    label: "Просрочка",
     color: "text-red-400",
     bg: "bg-red-500/15",
     border: "border-red-500/50",
@@ -250,7 +250,7 @@ export const STATUS_CONFIG: Record<
     pulse: true,
   },
   technical_issue: {
-    label: "Tech Issue",
+    label: "Тех. проблема",
     color: "text-red-500",
     bg: "bg-red-900/20",
     border: "border-red-500/60",
@@ -286,7 +286,7 @@ export function computeActivityFeed(
     if (sinceStart > 0 && sinceStart < 30 * 60 * 1000 && end > now) {
       items.push({
         id: `start-${b.id}`,
-        message: `${zone} — ${client} session started`,
+        message: `${zone} — сеанс начался: ${client}`,
         time: start,
         type: "success",
       });
@@ -297,7 +297,7 @@ export function computeActivityFeed(
     if (sinceEnd > 0 && sinceEnd < 20 * 60 * 1000) {
       items.push({
         id: `end-${b.id}`,
-        message: `${zone} — session ended, cleaning`,
+        message: `${zone} — сеанс завершён, уборка`,
         time: end,
         type: "info",
       });
@@ -308,7 +308,7 @@ export function computeActivityFeed(
     if (untilStart > 0 && untilStart < 15 * 60 * 1000) {
       items.push({
         id: `arriving-${b.id}`,
-        message: `${zone} — ${client} arriving in ${Math.floor(untilStart / 60000)}m`,
+        message: `${zone} — ${client} прибывает через ${Math.floor(untilStart / 60000)} мин`,
         time: new Date(now.getTime() - 10000),
         type: "info",
       });
@@ -319,7 +319,7 @@ export function computeActivityFeed(
       const lateMin = Math.floor(sinceStart / 60000);
       items.push({
         id: `late-${b.id}`,
-        message: `${zone} — ${client} is ${lateMin}m late`,
+        message: `${zone} — ${client} опаздывает на ${lateMin} мин`,
         time: start,
         type: "warn",
       });

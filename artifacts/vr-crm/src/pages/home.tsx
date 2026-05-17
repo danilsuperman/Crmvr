@@ -57,10 +57,10 @@ function getStatusColor(status: string) {
 
 function getStatusLabel(status: string) {
   switch (status) {
-    case "confirmed": return "Confirmed";
-    case "pending": return "Pending";
-    case "cancelled": return "Cancelled";
-    case "event": return "Event";
+    case "confirmed": return "Подтверждено";
+    case "pending": return "Ожидание";
+    case "cancelled": return "Отменено";
+    case "event": return "Мероприятие";
     default: return status;
   }
 }
@@ -144,13 +144,13 @@ export default function Home() {
         queryClient.invalidateQueries({
           queryKey: getListBookingsQueryKey({ date: dateStr }),
         });
-        toast.success("Booking created");
+        toast.success("Бронь создана");
         setIsModalOpen(false);
       },
       onError: (err: unknown) => {
         const msg =
           (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-          "Failed to create booking";
+          "Не удалось создать бронь";
         toast.error(msg);
       },
     },
@@ -182,7 +182,7 @@ export default function Home() {
 
   const handleSubmit = () => {
     if (!form.clientName.trim()) {
-      toast.error("Client name is required");
+      toast.error("Введите имя клиента");
       return;
     }
     const startISO = `${form.date}T${form.startTime}:00.000Z`;
@@ -276,7 +276,7 @@ export default function Home() {
             {format(currentDate, "d MMM, yyyy")}
             {isToday && (
               <span className="text-[10px] text-primary font-semibold uppercase tracking-wider ml-1">
-                Today
+                Сегодня
               </span>
             )}
           </button>
@@ -305,7 +305,7 @@ export default function Home() {
               )}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              Grid
+              <span className="hidden sm:inline">Сетка</span>
             </button>
             <button
               onClick={() => setViewMode("map")}
@@ -318,7 +318,7 @@ export default function Home() {
               )}
             >
               <Map className="w-3.5 h-3.5" />
-              Live Map
+              <span className="hidden sm:inline">Живая карта</span>
             </button>
           </div>
         </div>
@@ -338,11 +338,11 @@ export default function Home() {
             <Button
               variant="outline"
               size="sm"
-              className="h-8 text-xs"
+              className="h-8 text-xs hidden sm:flex"
               onClick={() => setCurrentDate(new Date())}
               data-testid="button-today"
             >
-              Today
+              Сегодня
             </Button>
           )}
           <Button
@@ -352,7 +352,7 @@ export default function Home() {
             data-testid="button-new-booking"
           >
             <Plus className="w-3.5 h-3.5" />
-            New Booking
+            <span className="hidden sm:inline">Новая бронь</span>
           </Button>
         </div>
       </header>
@@ -365,7 +365,7 @@ export default function Home() {
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                 <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                  Loading park...
+                  Загрузка парка...
                 </p>
               </div>
             </div>
@@ -390,7 +390,7 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                   <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                    Loading grid...
+                    Загрузка сетки...
                   </p>
                 </div>
               </div>
@@ -412,7 +412,7 @@ export default function Home() {
                         {zone.name}
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
-                        Cap: {zone.capacity}
+                        Макс: {zone.capacity}
                       </div>
                     </div>
                   ))}
@@ -491,11 +491,11 @@ export default function Home() {
                                   data-testid={`booking-card-${booking.id}`}
                                 >
                                   <div className="font-semibold text-xs truncate leading-tight">
-                                    {booking.clientName || "Guest"}
+                                    {booking.clientName || "Гость"}
                                   </div>
                                   {booking.durationSlots > 1 && (
                                     <div className="text-[10px] opacity-70 flex items-center gap-1.5 mt-0.5">
-                                      <span>{booking.guestsCount} guests</span>
+                                      <span>{booking.guestsCount} гост.</span>
                                       <span>·</span>
                                       <span>{getStatusLabel(booking.status)}</span>
                                     </div>
@@ -519,12 +519,12 @@ export default function Home() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base">New Booking</DialogTitle>
+            <DialogTitle className="text-base">Новая бронь</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Date</Label>
+                <Label className="text-xs">Дата</Label>
                 <Input
                   type="date"
                   className="h-8 text-xs"
@@ -534,7 +534,7 @@ export default function Home() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Start</Label>
+                <Label className="text-xs">Начало</Label>
                 <Input
                   type="time"
                   className="h-8 text-xs"
@@ -544,7 +544,7 @@ export default function Home() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">End</Label>
+                <Label className="text-xs">Конец</Label>
                 <Input
                   type="time"
                   className="h-8 text-xs"
@@ -557,13 +557,13 @@ export default function Home() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Zone</Label>
+                <Label className="text-xs">Зона</Label>
                 <Select
                   value={form.zoneId}
                   onValueChange={(v) => setForm((f) => ({ ...f, zoneId: v }))}
                 >
                   <SelectTrigger className="h-8 text-xs" data-testid="select-zone">
-                    <SelectValue placeholder="Select zone" />
+                    <SelectValue placeholder="Выберите зону" />
                   </SelectTrigger>
                   <SelectContent>
                     {zones.map((z) => (
@@ -575,13 +575,13 @@ export default function Home() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Session Type</Label>
+                <Label className="text-xs">Тип сеанса</Label>
                 <Select
                   value={form.sessionTypeId}
                   onValueChange={(v) => setForm((f) => ({ ...f, sessionTypeId: v }))}
                 >
                   <SelectTrigger className="h-8 text-xs" data-testid="select-session-type">
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Выберите тип" />
                   </SelectTrigger>
                   <SelectContent>
                     {sessionTypes.map((st) => (
@@ -595,10 +595,10 @@ export default function Home() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Client Name *</Label>
+              <Label className="text-xs">Имя клиента *</Label>
               <Input
                 className="h-8 text-xs"
-                placeholder="Full name"
+                placeholder="Полное имя"
                 value={form.clientName}
                 onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))}
                 data-testid="input-client-name"
@@ -607,7 +607,7 @@ export default function Home() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Phone</Label>
+                <Label className="text-xs">Телефон</Label>
                 <Input
                   className="h-8 text-xs"
                   placeholder="+7 xxx xxx-xx-xx"
@@ -617,7 +617,7 @@ export default function Home() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Guests</Label>
+                <Label className="text-xs">Гостей</Label>
                 <Input
                   className="h-8 text-xs"
                   type="number"
@@ -631,7 +631,7 @@ export default function Home() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Status</Label>
+                <Label className="text-xs">Статус</Label>
                 <Select
                   value={form.status}
                   onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
@@ -640,18 +640,18 @@ export default function Home() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="event">Event</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="confirmed">Подтверждено</SelectItem>
+                    <SelectItem value="pending">Ожидание</SelectItem>
+                    <SelectItem value="event">Мероприятие</SelectItem>
+                    <SelectItem value="cancelled">Отменено</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Admin</Label>
+                <Label className="text-xs">Администратор</Label>
                 <Input
                   className="h-8 text-xs"
-                  placeholder="Administrator"
+                  placeholder="Имя администратора"
                   value={form.adminName}
                   onChange={(e) => setForm((f) => ({ ...f, adminName: e.target.value }))}
                   data-testid="input-admin"
@@ -660,10 +660,10 @@ export default function Home() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Notes</Label>
+              <Label className="text-xs">Заметки</Label>
               <Input
                 className="h-8 text-xs"
-                placeholder="Optional notes"
+                placeholder="Дополнительные примечания"
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 data-testid="input-notes"
@@ -676,7 +676,7 @@ export default function Home() {
               disabled={createBooking.isPending}
               data-testid="button-submit-booking"
             >
-              {createBooking.isPending ? "Creating..." : "Create Booking"}
+              {createBooking.isPending ? "Создание..." : "Создать бронь"}
             </Button>
           </div>
         </DialogContent>
