@@ -3,20 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: VR Park CRM API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: zones
+    description: Zone management
+  - name: sessionTypes
+    description: Session type management
+  - name: clients
+    description: Client management
+  - name: bookings
+    description: Booking management
+  - name: events
+    description: Event management
+  - name: dashboard
+    description: Dashboard aggregates
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +35,530 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # Zones
+  /zones:
+    get:
+      operationId: listZones
+      tags: [zones]
+      summary: List all zones
+      responses:
+        "200":
+          description: List of zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Zone"
+    post:
+      operationId: createZone
+      tags: [zones]
+      summary: Create a zone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZoneInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Zone"
+
+  /zones/{id}:
+    patch:
+      operationId: updateZone
+      tags: [zones]
+      summary: Update a zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZoneUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Zone"
+    delete:
+      operationId: deleteZone
+      tags: [zones]
+      summary: Delete a zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # Session Types
+  /session-types:
+    get:
+      operationId: listSessionTypes
+      tags: [sessionTypes]
+      summary: List all session types
+      responses:
+        "200":
+          description: List of session types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionType"
+    post:
+      operationId: createSessionType
+      tags: [sessionTypes]
+      summary: Create a session type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionTypeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionType"
+
+  /session-types/{id}:
+    patch:
+      operationId: updateSessionType
+      tags: [sessionTypes]
+      summary: Update a session type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionTypeUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionType"
+    delete:
+      operationId: deleteSessionType
+      tags: [sessionTypes]
+      summary: Delete a session type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # Clients
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: List clients with optional search
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+  /clients/{id}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get client with booking history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client with bookings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Delete a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # Bookings
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List bookings, filtered by date
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+          description: ISO date string (YYYY-MM-DD)
+        - name: zoneId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "409":
+          description: Conflict with existing booking
+
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateBooking
+      tags: [bookings]
+      summary: Update a booking (move, resize, status change)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "409":
+          description: Conflict
+    delete:
+      operationId: deleteBooking
+      tags: [bookings]
+      summary: Delete a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # Events
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List events
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create an event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /events/{id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get event with stages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateEvent
+      tags: [events]
+      summary: Update an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+    delete:
+      operationId: deleteEvent
+      tags: [events]
+      summary: Delete an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /events/{id}/stages:
+    post:
+      operationId: addEventStage
+      tags: [events]
+      summary: Add a stage to an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventStageInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStage"
+
+  /events/{id}/stages/{stageId}:
+    patch:
+      operationId: updateEventStage
+      tags: [events]
+      summary: Update an event stage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventStageUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStage"
+    delete:
+      operationId: deleteEventStage
+      tags: [events]
+      summary: Delete an event stage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # Dashboard wow endpoint
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get today's summary stats
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +569,418 @@ components:
       required:
         - status
 
+    Zone:
+      type: object
+      required: [id, name, color, capacity]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+        capacity:
+          type: integer
+        openTime:
+          type: ["string", "null"]
+        closeTime:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+
+    ZoneInput:
+      type: object
+      required: [name, color, capacity]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        capacity:
+          type: integer
+        openTime:
+          type: string
+        closeTime:
+          type: string
+
+    ZoneUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        capacity:
+          type: integer
+        openTime:
+          type: string
+        closeTime:
+          type: string
+        isActive:
+          type: boolean
+
+    SessionType:
+      type: object
+      required: [id, name, color, minDuration]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+        minDuration:
+          type: integer
+          description: Minimum duration in minutes
+
+    SessionTypeInput:
+      type: object
+      required: [name, color, minDuration]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        minDuration:
+          type: integer
+
+    SessionTypeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        minDuration:
+          type: integer
+
+    Client:
+      type: object
+      required: [id, name, phone]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        birthday:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        visitCount:
+          type: integer
+        lastVisit:
+          type: ["string", "null"]
+
+    ClientInput:
+      type: object
+      required: [name, phone]
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        birthday:
+          type: string
+        notes:
+          type: string
+
+    ClientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        birthday:
+          type: string
+        notes:
+          type: string
+
+    ClientDetail:
+      type: object
+      required: [id, name, phone]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        birthday:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        visitCount:
+          type: integer
+        lastVisit:
+          type: ["string", "null"]
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+
+    Booking:
+      type: object
+      required: [id, startTime, endTime, guestsCount, status]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: ["integer", "null"]
+        clientName:
+          type: ["string", "null"]
+        clientPhone:
+          type: ["string", "null"]
+        zoneId:
+          type: ["integer", "null"]
+        zoneName:
+          type: ["string", "null"]
+        zoneColor:
+          type: ["string", "null"]
+        sessionTypeId:
+          type: ["integer", "null"]
+        sessionTypeName:
+          type: ["string", "null"]
+        sessionTypeColor:
+          type: ["string", "null"]
+        startTime:
+          type: string
+        endTime:
+          type: string
+        guestsCount:
+          type: integer
+        status:
+          type: string
+          enum: [confirmed, pending, cancelled, event]
+        notes:
+          type: ["string", "null"]
+        adminName:
+          type: ["string", "null"]
+
+    BookingInput:
+      type: object
+      required: [startTime, endTime, guestsCount, status]
+      properties:
+        clientId:
+          type: integer
+        clientName:
+          type: string
+        clientPhone:
+          type: string
+        zoneId:
+          type: integer
+        sessionTypeId:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        guestsCount:
+          type: integer
+        status:
+          type: string
+          enum: [confirmed, pending, cancelled, event]
+        notes:
+          type: string
+        adminName:
+          type: string
+
+    BookingUpdate:
+      type: object
+      properties:
+        clientId:
+          type: integer
+        clientName:
+          type: string
+        clientPhone:
+          type: string
+        zoneId:
+          type: integer
+        sessionTypeId:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        guestsCount:
+          type: integer
+        status:
+          type: string
+          enum: [confirmed, pending, cancelled, event]
+        notes:
+          type: string
+        adminName:
+          type: string
+
+    Event:
+      type: object
+      required: [id, title, startTime, endTime, guestsCount, status]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        startTime:
+          type: string
+        endTime:
+          type: string
+        guestsCount:
+          type: integer
+        status:
+          type: string
+          enum: [planned, active, completed, cancelled]
+        zones:
+          type: ["string", "null"]
+        responsible:
+          type: ["string", "null"]
+
+    EventInput:
+      type: object
+      required: [title, startTime, endTime, guestsCount]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        guestsCount:
+          type: integer
+        status:
+          type: string
+          enum: [planned, active, completed, cancelled]
+        zones:
+          type: string
+        responsible:
+          type: string
+
+    EventUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        guestsCount:
+          type: integer
+        status:
+          type: string
+          enum: [planned, active, completed, cancelled]
+        zones:
+          type: string
+        responsible:
+          type: string
+
+    EventStage:
+      type: object
+      required: [id, eventId, name, orderIndex]
+      properties:
+        id:
+          type: integer
+        eventId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        durationMinutes:
+          type: ["integer", "null"]
+        orderIndex:
+          type: integer
+
+    EventStageInput:
+      type: object
+      required: [name, orderIndex]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+        orderIndex:
+          type: integer
+
+    EventStageUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+        orderIndex:
+          type: integer
+
+    DashboardSummary:
+      type: object
+      required: [totalBookings, confirmedBookings, pendingBookings, cancelledBookings, totalGuests, zoneStats]
+      properties:
+        totalBookings:
+          type: integer
+        confirmedBookings:
+          type: integer
+        pendingBookings:
+          type: integer
+        cancelledBookings:
+          type: integer
+        totalGuests:
+          type: integer
+        zoneStats:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZoneStat"
+        upcomingEvents:
+          type: integer
+
+    EventDetail:
+      type: object
+      required: [id, title, startTime, endTime, guestsCount, status]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        startTime:
+          type: string
+        endTime:
+          type: string
+        guestsCount:
+          type: integer
+        status:
+          type: string
+          enum: [planned, active, completed, cancelled]
+        zones:
+          type: ["string", "null"]
+        responsible:
+          type: ["string", "null"]
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventStage"
+
+    ZoneStat:
+      type: object
+      required: [zoneId, zoneName, zoneColor, bookingCount]
+      properties:
+        zoneId:
+          type: integer
+        zoneName:
+          type: string
+        zoneColor:
+          type: string
+        bookingCount:
+          type: integer
