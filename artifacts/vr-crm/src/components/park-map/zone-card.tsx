@@ -1,8 +1,17 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Clock, ChevronRight, Zap, Sparkles } from "lucide-react";
+import { Users, Clock, ChevronRight, Zap, Sparkles, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ZoneState, STATUS_CONFIG } from "@/lib/zone-status";
 import { format } from "date-fns";
+
+interface DayBooking {
+  id: number;
+  clientName?: string | null;
+  guestsCount: number;
+  startTime: string;
+  endTime: string;
+  status: string;
+}
 
 interface ZoneCardProps {
   zone: {
@@ -13,6 +22,7 @@ interface ZoneCardProps {
   };
   state: ZoneState;
   now: Date;
+  dayBookings: DayBooking[];
   onClick: () => void;
   onDoubleClick: () => void;
 }
@@ -28,8 +38,14 @@ function formatTime(iso: string): string {
   return format(new Date(iso), "HH:mm");
 }
 
-export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardProps) {
+export function ZoneCard({ zone, state, now, dayBookings, onClick, onDoubleClick }: ZoneCardProps) {
   const cfg = STATUS_CONFIG[state.status];
+  const isActive = state.status === "active";
+
+  // Sort bookings by start time for schedule display
+  const sortedBookings = [...dayBookings]
+    .filter((b) => b.status !== "cancelled")
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   return (
     <motion.div
@@ -44,11 +60,18 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
         "relative flex flex-col rounded-xl border cursor-pointer select-none overflow-hidden",
         "bg-card/60 backdrop-blur-sm transition-all duration-500",
         cfg.border,
-        `shadow-lg ${cfg.glow}`,
+        isActive
+          ? `shadow-xl ${cfg.glow} ring-1 ring-cyan-500/40`
+          : `shadow-lg ${cfg.glow}`,
         "hover:scale-[1.02] hover:shadow-xl active:scale-[0.99]",
         "min-h-[200px] p-4 gap-3"
       )}
     >
+      {/* Bright background for active zones */}
+      {isActive && (
+        <div className="absolute inset-0 bg-cyan-500/5 rounded-xl pointer-events-none" />
+      )}
+
       {/* Pulsing overlay for urgent states */}
       {cfg.pulse && (
         <motion.div
@@ -58,9 +81,9 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
         />
       )}
 
-      {/* Zone color accent bar at top */}
+      {/* Zone color accent bar at top — thicker when active */}
       <div
-        className="absolute top-0 left-0 right-0 h-0.5 rounded-t-xl"
+        className={cn("absolute top-0 left-0 right-0 rounded-t-xl", isActive ? "h-1" : "h-0.5")}
         style={{ backgroundColor: zone.color }}
       />
 
@@ -68,7 +91,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
       <div className="relative flex items-start justify-between z-10">
         <div className="flex items-center gap-2">
           <div
-            className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
+            className={cn("w-2.5 h-2.5 rounded-full shrink-0 mt-0.5", isActive && "ring-2 ring-cyan-400/50")}
             style={{ backgroundColor: zone.color }}
           />
           <span className="font-semibold text-sm text-foreground leading-tight">
@@ -136,9 +159,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
             className="text-center"
           >
             <Sparkles className="w-8 h-8 text-amber-400 mx-auto mb-1" />
-            <div className="text-xs text-amber-400 uppercase tracking-wider">
-              Уборка
-            </div>
+            <div className="text-xs text-amber-400 uppercase tracking-wider">Уборка</div>
           </motion.div>
         )}
 
@@ -150,9 +171,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
             className="text-center"
           >
             <Zap className="w-8 h-8 text-emerald-400 mx-auto mb-1 opacity-60" />
-            <div className="text-xs text-emerald-400 uppercase tracking-wider">
-              Свободно
-            </div>
+            <div className="text-xs text-emerald-400 uppercase tracking-wider">Свободно</div>
           </motion.div>
         )}
       </div>
@@ -209,8 +228,45 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
         </div>
       )}
 
-      {/* Next booking footer */}
-      {state.nextBooking && state.status !== "waiting" && (
+      {/* Daily schedule */}
+      {sortedBookings.length > 0 && (
+        <div className="relative z-10 border-t border-border/40 pt-2 mt-auto">
+          <div className="flex items-center gap-1 mb-1.5">
+            <CalendarDays className="w-2.5 h-2.5 text-muted-foreground" />
+            <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">
+              Расписание
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            {sortedBookings.map((b) => {
+              const start = new Date(b.startTime);
+              const end = new Date(b.endTime);
+              const isCurrent = start <= now && end >= now;
+              return (
+                <div
+                  key={b.id}
+                  className={cn(
+                    "flex items-center gap-1.5 text-[10px] rounded px-1 py-0.5",
+                    isCurrent
+                      ? "bg-cyan-500/15 text-cyan-300"
+                      : end < now
+                      ? "text-muted-foreground/50"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  <span className="font-mono shrink-0">
+                    {formatTime(b.startTime)}–{formatTime(b.endTime)}
+                  </span>
+                  <span className="truncate">{b.clientName || "Гость"}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Next booking footer — only if no schedule */}
+      {sortedBookings.length === 0 && state.nextBooking && state.status !== "waiting" && (
         <div className="relative z-10 flex items-center gap-1.5 text-[10px] text-muted-foreground border-t border-border/50 pt-2 mt-auto">
           <Clock className="w-3 h-3 shrink-0" />
           <span>Следующий: {formatTime(state.nextBooking.startTime)}</span>
@@ -223,7 +279,7 @@ export function ZoneCard({ zone, state, now, onClick, onDoubleClick }: ZoneCardP
         </div>
       )}
 
-      {/* Hover overlay for quick preview */}
+      {/* Hover overlay */}
       <div className={cn(
         "absolute inset-0 rounded-xl z-20 opacity-0 hover:opacity-100 transition-opacity duration-200",
         "bg-gradient-to-t from-black/60 via-transparent to-transparent",

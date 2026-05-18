@@ -12,6 +12,26 @@ import {
 
 const router = Router();
 
+const SELECT_BOOKING = {
+  id: bookingsTable.id,
+  clientId: bookingsTable.clientId,
+  clientName: bookingsTable.clientName,
+  clientPhone: bookingsTable.clientPhone,
+  zoneId: bookingsTable.zoneId,
+  sessionTypeId: bookingsTable.sessionTypeId,
+  packageId: bookingsTable.packageId,
+  startTime: bookingsTable.startTime,
+  endTime: bookingsTable.endTime,
+  guestsCount: bookingsTable.guestsCount,
+  status: bookingsTable.status,
+  notes: bookingsTable.notes,
+  adminName: bookingsTable.adminName,
+  zoneName: zonesTable.name,
+  zoneColor: zonesTable.color,
+  sessionTypeName: sessionTypesTable.name,
+  sessionTypeColor: sessionTypesTable.color,
+} as const;
+
 function formatBooking(b: {
   id: number;
   clientId: number | null;
@@ -19,6 +39,7 @@ function formatBooking(b: {
   clientPhone: string | null;
   zoneId: number | null;
   sessionTypeId: number | null;
+  packageId: number | null;
   startTime: Date;
   endTime: Date;
   guestsCount: number;
@@ -57,24 +78,7 @@ router.get("/", async (req, res) => {
   }
 
   const bookings = await db
-    .select({
-      id: bookingsTable.id,
-      clientId: bookingsTable.clientId,
-      clientName: bookingsTable.clientName,
-      clientPhone: bookingsTable.clientPhone,
-      zoneId: bookingsTable.zoneId,
-      sessionTypeId: bookingsTable.sessionTypeId,
-      startTime: bookingsTable.startTime,
-      endTime: bookingsTable.endTime,
-      guestsCount: bookingsTable.guestsCount,
-      status: bookingsTable.status,
-      notes: bookingsTable.notes,
-      adminName: bookingsTable.adminName,
-      zoneName: zonesTable.name,
-      zoneColor: zonesTable.color,
-      sessionTypeName: sessionTypesTable.name,
-      sessionTypeColor: sessionTypesTable.color,
-    })
+    .select(SELECT_BOOKING)
     .from(bookingsTable)
     .leftJoin(zonesTable, eq(bookingsTable.zoneId, zonesTable.id))
     .leftJoin(sessionTypesTable, eq(bookingsTable.sessionTypeId, sessionTypesTable.id))
@@ -127,24 +131,7 @@ router.post("/", async (req, res) => {
     .returning();
 
   const [full] = await db
-    .select({
-      id: bookingsTable.id,
-      clientId: bookingsTable.clientId,
-      clientName: bookingsTable.clientName,
-      clientPhone: bookingsTable.clientPhone,
-      zoneId: bookingsTable.zoneId,
-      sessionTypeId: bookingsTable.sessionTypeId,
-      startTime: bookingsTable.startTime,
-      endTime: bookingsTable.endTime,
-      guestsCount: bookingsTable.guestsCount,
-      status: bookingsTable.status,
-      notes: bookingsTable.notes,
-      adminName: bookingsTable.adminName,
-      zoneName: zonesTable.name,
-      zoneColor: zonesTable.color,
-      sessionTypeName: sessionTypesTable.name,
-      sessionTypeColor: sessionTypesTable.color,
-    })
+    .select(SELECT_BOOKING)
     .from(bookingsTable)
     .leftJoin(zonesTable, eq(bookingsTable.zoneId, zonesTable.id))
     .leftJoin(sessionTypesTable, eq(bookingsTable.sessionTypeId, sessionTypesTable.id))
@@ -161,24 +148,7 @@ router.get("/:id", async (req, res) => {
   }
 
   const [booking] = await db
-    .select({
-      id: bookingsTable.id,
-      clientId: bookingsTable.clientId,
-      clientName: bookingsTable.clientName,
-      clientPhone: bookingsTable.clientPhone,
-      zoneId: bookingsTable.zoneId,
-      sessionTypeId: bookingsTable.sessionTypeId,
-      startTime: bookingsTable.startTime,
-      endTime: bookingsTable.endTime,
-      guestsCount: bookingsTable.guestsCount,
-      status: bookingsTable.status,
-      notes: bookingsTable.notes,
-      adminName: bookingsTable.adminName,
-      zoneName: zonesTable.name,
-      zoneColor: zonesTable.color,
-      sessionTypeName: sessionTypesTable.name,
-      sessionTypeColor: sessionTypesTable.color,
-    })
+    .select(SELECT_BOOKING)
     .from(bookingsTable)
     .leftJoin(zonesTable, eq(bookingsTable.zoneId, zonesTable.id))
     .leftJoin(sessionTypesTable, eq(bookingsTable.sessionTypeId, sessionTypesTable.id))
@@ -253,24 +223,7 @@ router.patch("/:id", async (req, res) => {
     .where(eq(bookingsTable.id, params.data.id));
 
   const [updated] = await db
-    .select({
-      id: bookingsTable.id,
-      clientId: bookingsTable.clientId,
-      clientName: bookingsTable.clientName,
-      clientPhone: bookingsTable.clientPhone,
-      zoneId: bookingsTable.zoneId,
-      sessionTypeId: bookingsTable.sessionTypeId,
-      startTime: bookingsTable.startTime,
-      endTime: bookingsTable.endTime,
-      guestsCount: bookingsTable.guestsCount,
-      status: bookingsTable.status,
-      notes: bookingsTable.notes,
-      adminName: bookingsTable.adminName,
-      zoneName: zonesTable.name,
-      zoneColor: zonesTable.color,
-      sessionTypeName: sessionTypesTable.name,
-      sessionTypeColor: sessionTypesTable.color,
-    })
+    .select(SELECT_BOOKING)
     .from(bookingsTable)
     .leftJoin(zonesTable, eq(bookingsTable.zoneId, zonesTable.id))
     .leftJoin(sessionTypesTable, eq(bookingsTable.sessionTypeId, sessionTypesTable.id))

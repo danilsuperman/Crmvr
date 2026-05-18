@@ -1,11 +1,14 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { format, addDays, subDays } from "date-fns";
+import { ru } from "date-fns/locale";
 import {
   useListZones,
   useListBookings,
   useListSessionTypes,
   useCreateBooking,
   useUpdateBooking,
+  useDeleteBooking,
+  useListPackages,
   getListBookingsQueryKey,
 } from "@workspace/api-client-react";
 import {
@@ -13,9 +16,10 @@ import {
   ChevronRight,
   Plus,
   RefreshCw,
-  Calendar as CalendarIcon,
   LayoutGrid,
-  Map,
+  Map as MapIcon,
+  Trash2,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,22 +40,23 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ParkMap } from "@/components/park-map/park-map";
+import { DatePicker } from "@/components/ui/date-picker";
+import { EventDashboard } from "@/components/booking/event-dashboard";
 import { useQueryClient } from "@tanstack/react-query";
 
 type ViewMode = "grid" | "map";
 
+const ROW_H = 60;
+const TIME_COL_W = 64;
+const ZONE_COL_W = 180;
+
 function getStatusColor(status: string) {
   switch (status) {
-    case "confirmed":
-      return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-    case "pending":
-      return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-    case "cancelled":
-      return "bg-red-500/20 text-red-400 border-red-500/30";
-    case "event":
-      return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-    default:
-      return "bg-muted text-muted-foreground border-border";
+    case "confirmed": return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+    case "pending": return "bg-amber-500/20 text-amber-300 border-amber-500/30";
+    case "cancelled": return "bg-red-500/20 text-red-400 border-red-500/30";
+    case "event": return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    default: return "bg-muted text-muted-foreground border-border";
   }
 }
 
@@ -77,7 +82,45 @@ interface BookingFormState {
   status: string;
   notes: string;
   adminName: string;
+  isEvent: boolean;
+  packageId: string;
 }
+
+type Booking = {
+  id: number;
+  clientId: number | null;
+  clientName: string | null;
+  clientPhone: string | null;
+  zoneId: number | null;
+  zoneName: string | null;
+  zoneColor: string | null;
+  sessionTypeId: number | null;
+  sessionTypeName: string | null;
+  sessionTypeColor: string | null;
+  packageId: number | null;
+  startTime: string;
+  endTime: string;
+  guestsCount: number;
+  status: string;
+  notes: string | null;
+  adminName: string | null;
+};
+
+const EMPTY_FORM: BookingFormState = {
+  date: format(new Date(), "yyyy-MM-dd"),
+  startTime: "12:00",
+  endTime: "14:00",
+  zoneId: "",
+  sessionTypeId: "",
+  clientName: "",
+  clientPhone: "",
+  guestsCount: "2",
+  status: "confirmed",
+  notes: "",
+  adminName: "",
+  isEvent: false,
+  packageId: "",
+};
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -86,6 +129,7 @@ export default function Home() {
 
   const { data: zones = [], isLoading: isLoadingZones } = useListZones();
   const { data: sessionTypes = [] } = useListSessionTypes();
+  const { data: packages = [] } = useListPackages();
   const {
     data: bookings = [],
     isLoading: isLoadingBookings,
@@ -97,7 +141,8 @@ export default function Home() {
 
   const queryClient = useQueryClient();
 
-  // Now-line state
+  const isToday = format(new Date(), "yyyy-MM-dd") === dateStr;
+
   const [nowMinutes, setNowMinutes] = useState(() => {
     const n = new Date();
     return n.getHours() * 60 + n.getMinutes();
@@ -119,31 +164,120 @@ export default function Home() {
     return slots;
   }, []);
 
+  // Slot lookup: "HH:MM" -> index
+  const slotIndex = useMemo(() => {
+    const map: Map<string, number> = new Map([]);
+    timeSlots.forEach((s, i) => map.set(s, i));
+    return map;
+  }, [timeSlots]);
+
+  // Grid bookings with slot positions
+  const gridBookings = useMemo(() => {
+    return bookings
+      .filter((b) => b.status !== "cancelled")
+      .map((b) => {
+        const start = new Date(b.startTime);
+        const end = new Date(b.endTime);
+        const startHH = start.getUTCHours().toString().padStart(2, "0");
+        const startMM = start.getUTCMinutes() < 30 ? "00" : "30";
+        const startSlot = `${startHH}:${startMM}`;
+        const durationMin = (end.getTime() - start.getTime()) / 60000;
+        const durationSlots = Math.max(1, Math.ceil(durationMin / 30));
+        return { ...b, startSlot, durationSlots };
+      });
+  }, [bookings]);
+
+  type GridBooking = (typeof gridBookings)[number];
+
+  // Group event bookings by packageId
+  const eventGroups = useMemo(() => {
+    const groups: Map<number, GridBooking[]> = new Map([]);
+    for (const b of gridBookings) {
+      if (b.packageId !== null && b.packageId !== undefined && b.status === "event") {
+        if (!groups.has(b.packageId)) groups.set(b.packageId, []);
+        groups.get(b.packageId)!.push(b);
+      }
+    }
+    return groups;
+  }, [gridBookings]);
+
+  // IDs of bookings that are part of event groups (hidden from individual display)
+  const eventBookingIds = useMemo(() => {
+    const ids: Set<number> = new Set();
+    eventGroups.forEach((group: GridBooking[]) => group.forEach((b: GridBooking) => ids.add(b.id)));
+    return ids;
+  }, [eventGroups]);
+
+  // Now line top
+  const nowLineTop = useMemo(() => {
+    if (!isToday) return null;
+    const slotStart = 10 * 60;
+    const slotEnd = 22 * 60;
+    if (nowMinutes < slotStart || nowMinutes > slotEnd) return null;
+    const diff = nowMinutes - slotStart;
+    return (diff / 30) * ROW_H;
+  }, [isToday, nowMinutes]);
+
+  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCell, setSelectedCell] = useState<{
-    time: string;
-    zoneId: number;
-  } | null>(null);
-  const [form, setForm] = useState<BookingFormState>({
-    date: dateStr,
-    startTime: "12:00",
-    endTime: "13:00",
-    zoneId: "",
-    sessionTypeId: "",
-    clientName: "",
-    clientPhone: "",
-    guestsCount: "2",
-    status: "confirmed",
-    notes: "",
-    adminName: "",
-  });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<BookingFormState>(EMPTY_FORM);
+
+  // Event dashboard state
+  const [eventDashPkgId, setEventDashPkgId] = useState<number | null>(null);
+
+  const openNewBooking = useCallback((zoneId?: number, time?: string) => {
+    setEditingId(null);
+    setForm({
+      ...EMPTY_FORM,
+      date: dateStr,
+      startTime: time || "12:00",
+      endTime: time
+        ? (() => {
+            const [h, m] = time.split(":").map(Number);
+            const endMin = h * 60 + m + 120;
+            return `${Math.floor(endMin / 60).toString().padStart(2, "0")}:${(endMin % 60).toString().padStart(2, "0")}`;
+          })()
+        : "14:00",
+      zoneId: zoneId?.toString() || "",
+    });
+    setIsModalOpen(true);
+  }, [dateStr]);
+
+  const openEditBooking = useCallback((b: Booking) => {
+    const start = new Date(b.startTime);
+    const end = new Date(b.endTime);
+    setEditingId(b.id);
+    setForm({
+      date: format(start, "yyyy-MM-dd"),
+      startTime: format(start, "HH:mm"),
+      endTime: format(end, "HH:mm"),
+      zoneId: b.zoneId?.toString() || "",
+      sessionTypeId: b.sessionTypeId?.toString() || "",
+      clientName: b.clientName || "",
+      clientPhone: b.clientPhone || "",
+      guestsCount: b.guestsCount.toString(),
+      status: b.status,
+      notes: b.notes || "",
+      adminName: b.adminName || "",
+      isEvent: b.status === "event",
+      packageId: b.packageId?.toString() || "",
+    });
+    setIsModalOpen(true);
+  }, []);
+
+  const handleCellClick = useCallback((time: string, zoneId: number) => {
+    openNewBooking(zoneId, time);
+  }, [openNewBooking]);
+
+  const invalidateBookings = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey({ date: dateStr }) });
+  }, [queryClient, dateStr]);
 
   const createBooking = useCreateBooking({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: getListBookingsQueryKey({ date: dateStr }),
-        });
+        invalidateBookings();
         toast.success("Бронь создана");
         setIsModalOpen(false);
       },
@@ -156,200 +290,202 @@ export default function Home() {
     },
   });
 
-  const handleCellClick = useCallback(
-    (time: string, zoneId: number) => {
-      const [h, m] = time.split(":").map(Number);
-      const endH = Math.floor((h * 60 + m + 60) / 60);
-      const endM = (h * 60 + m + 60) % 60;
-      setSelectedCell({ time, zoneId });
-      setForm({
-        date: dateStr,
-        startTime: time,
-        endTime: `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`,
-        zoneId: zoneId.toString(),
-        sessionTypeId: "",
-        clientName: "",
-        clientPhone: "",
-        guestsCount: "2",
-        status: "confirmed",
-        notes: "",
-        adminName: "",
-      });
-      setIsModalOpen(true);
+  const updateBooking = useUpdateBooking({
+    mutation: {
+      onSuccess: () => {
+        invalidateBookings();
+        toast.success("Бронь обновлена");
+        setIsModalOpen(false);
+      },
+      onError: (err: unknown) => {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          "Конфликт брони";
+        toast.error(msg);
+      },
     },
-    [dateStr]
-  );
+  });
 
-  const handleSubmit = () => {
+  const deleteBooking = useDeleteBooking({
+    mutation: {
+      onSuccess: () => {
+        invalidateBookings();
+        toast.success("Бронь удалена");
+        setIsModalOpen(false);
+      },
+      onError: () => toast.error("Ошибка удаления"),
+    },
+  });
+
+  const handleSubmit = useCallback(async () => {
     if (!form.clientName.trim()) {
       toast.error("Введите имя клиента");
       return;
     }
     const startISO = `${form.date}T${form.startTime}:00.000Z`;
     const endISO = `${form.date}T${form.endTime}:00.000Z`;
-    createBooking.mutate({
-      data: {
-        clientName: form.clientName,
-        clientPhone: form.clientPhone || undefined,
-        zoneId: form.zoneId ? Number(form.zoneId) : undefined,
-        sessionTypeId: form.sessionTypeId ? Number(form.sessionTypeId) : undefined,
-        startTime: startISO,
-        endTime: endISO,
-        guestsCount: Number(form.guestsCount) || 1,
-        status: form.status as "confirmed" | "pending" | "cancelled" | "event",
-        notes: form.notes || undefined,
-        adminName: form.adminName || undefined,
-      },
-    });
-  };
 
-  const openNewBooking = useCallback(() => {
-    setSelectedCell(null);
-    setForm({
-      date: dateStr,
-      startTime: "12:00",
-      endTime: "13:00",
-      zoneId: "",
-      sessionTypeId: "",
-      clientName: "",
-      clientPhone: "",
-      guestsCount: "2",
-      status: "confirmed",
-      notes: "",
-      adminName: "",
-    });
-    setIsModalOpen(true);
-  }, [dateStr]);
+    const base = {
+      clientName: form.clientName,
+      clientPhone: form.clientPhone || undefined,
+      sessionTypeId: form.sessionTypeId ? Number(form.sessionTypeId) : undefined,
+      startTime: startISO,
+      endTime: endISO,
+      guestsCount: parseInt(form.guestsCount) || 1,
+      status: form.isEvent ? "event" : (form.status as "confirmed" | "pending" | "cancelled" | "event"),
+      notes: form.notes || undefined,
+      adminName: form.adminName || undefined,
+      packageId: form.isEvent && form.packageId ? Number(form.packageId) : undefined,
+    };
 
-  // Grid: derive booking positions
-  const gridBookings = useMemo(() => {
-    return bookings.map((b) => {
-      const start = new Date(b.startTime);
-      const end = new Date(b.endTime);
-      const startHour = start.getUTCHours();
-      const startMin = start.getUTCMinutes();
-      const endHour = end.getUTCHours();
-      const endMin = end.getUTCMinutes();
-      const startSlot = `${startHour.toString().padStart(2, "0")}:${startMin === 0 ? "00" : "30"}`;
-      const durationSlots = Math.max(
-        1,
-        Math.round(((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 30)
-      );
-      return { ...b, startSlot, durationSlots };
-    });
-  }, [bookings]);
+    if (form.isEvent && form.packageId) {
+      // Create one booking per zone in the package
+      const pkg = packages.find((p) => p.id === Number(form.packageId));
+      const zoneIds = pkg?.zoneIds ?? [];
+      if (zoneIds.length === 0) {
+        toast.error("Выберите пакет с зонами");
+        return;
+      }
+      if (editingId !== null) {
+        // For edit, just update the one booking
+        updateBooking.mutate({ id: editingId, data: { ...base, zoneId: Number(form.zoneId) || undefined } });
+      } else {
+        // Create bookings for all zones in package
+        let first = true;
+        for (const zoneId of zoneIds) {
+          if (first) {
+            first = false;
+            createBooking.mutate({ data: { ...base, zoneId } });
+          } else {
+            // Fire subsequent creates without closing modal
+            try {
+              await fetch(`/api/bookings`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...base, zoneId }),
+              });
+            } catch {
+              // best effort
+            }
+          }
+        }
+        // Invalidate after a short delay to catch all creates
+        setTimeout(() => invalidateBookings(), 800);
+      }
+      return;
+    }
 
-  // Today's "now" line position in the grid (rows of 30min, each 60px high)
-  const nowLineTop = useMemo(() => {
-    const gridStartMinutes = 10 * 60; // 10:00
-    const currentDayStr = format(currentDate, "yyyy-MM-dd");
-    const todayStr = format(new Date(), "yyyy-MM-dd");
-    if (currentDayStr !== todayStr) return null;
-    const diff = nowMinutes - gridStartMinutes;
-    if (diff < 0) return null;
-    return (diff / 30) * 60; // 60px per slot
-  }, [nowMinutes, currentDate]);
+    const data = {
+      ...base,
+      zoneId: form.zoneId ? Number(form.zoneId) : undefined,
+    };
 
-  const isToday = format(currentDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+    if (editingId !== null) {
+      updateBooking.mutate({ id: editingId, data });
+    } else {
+      createBooking.mutate({ data });
+    }
+  }, [form, editingId, packages, createBooking, updateBooking, invalidateBookings]);
+
+  const selectedPkg = packages.find((p) => p.id === Number(form.packageId));
+
+  // Event dashboard data
+  const eventDashData = useMemo(() => {
+    if (eventDashPkgId === null) return null;
+    const group = eventGroups.get(eventDashPkgId);
+    const pkg = packages.find((p) => p.id === eventDashPkgId);
+    if (!group || !pkg) return null;
+    return { bookings: group, pkg };
+  }, [eventDashPkgId, eventGroups, packages]);
+
+  // Form date object (for custom picker)
+  const formDate = useMemo(() => {
+    const [y, m, d] = form.date.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }, [form.date]);
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Top bar */}
-      <header className="h-14 border-b border-border/50 flex items-center px-4 gap-3 shrink-0 bg-background/80 backdrop-blur">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <header className="h-14 border-b border-border/50 flex items-center gap-2 px-3 md:px-4 bg-card/50 backdrop-blur-sm shrink-0 z-20">
         {/* Date nav */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setCurrentDate(subDays(currentDate, 1))}
-            data-testid="button-prev-day"
+            onClick={() => setCurrentDate((d) => subDays(d, 1))}
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <button
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border/50 bg-card/30 hover:bg-card/60 transition-colors text-sm font-medium"
-            onClick={() => setCurrentDate(new Date())}
-            data-testid="button-date"
-          >
-            <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" />
-            {format(currentDate, "d MMM, yyyy")}
-            {isToday && (
-              <span className="text-[10px] text-primary font-semibold uppercase tracking-wider ml-1">
-                Сегодня
-              </span>
-            )}
-          </button>
+
+          <DatePicker
+            value={currentDate}
+            onChange={setCurrentDate}
+            align="left"
+            trigger={
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-muted/60 transition-colors">
+                {format(currentDate, "d MMM, yyyy", { locale: ru })}
+                {isToday && (
+                  <span className="text-[10px] text-primary font-semibold uppercase tracking-wider">
+                    Сегодня
+                  </span>
+                )}
+              </button>
+            }
+          />
+
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setCurrentDate(addDays(currentDate, 1))}
-            data-testid="button-next-day"
+            onClick={() => setCurrentDate((d) => addDays(d, 1))}
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Mode switcher — center */}
-        <div className="flex-1 flex justify-center">
-          <div className="flex items-center rounded-lg border border-border/50 p-0.5 bg-card/30">
-            <button
-              onClick={() => setViewMode("grid")}
-              data-testid="button-mode-grid"
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200",
-                viewMode === "grid"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Сетка</span>
-            </button>
-            <button
-              onClick={() => setViewMode("map")}
-              data-testid="button-mode-map"
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200",
-                viewMode === "map"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Map className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Живая карта</span>
-            </button>
-          </div>
+        {/* View mode toggle */}
+        <div className="hidden sm:flex items-center gap-0.5 bg-muted/30 rounded-lg p-0.5 border border-border/40 ml-1">
+          <button
+            onClick={() => setViewMode("map")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200",
+              viewMode === "map"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <MapIcon className="w-3.5 h-3.5" />
+            Карта
+          </button>
+          <button
+            onClick={() => setViewMode("grid")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200",
+              viewMode === "grid"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Сетка
+          </button>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
             onClick={() => refetch()}
-            data-testid="button-refresh"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </Button>
-          {!isToday && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs hidden sm:flex"
-              onClick={() => setCurrentDate(new Date())}
-              data-testid="button-today"
-            >
-              Сегодня
-            </Button>
-          )}
           <Button
             size="sm"
             className="h-8 text-xs gap-1.5"
-            onClick={openNewBooking}
-            data-testid="button-new-booking"
+            onClick={() => openNewBooking()}
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Новая бронь</span>
@@ -372,14 +508,18 @@ export default function Home() {
           ) : (
             <ParkMap
               zones={zones}
-              bookings={bookings}
+              bookings={bookings.map((b) => ({ ...b, zoneId: b.zoneId ?? null }))}
               onBookingClick={(id) => {
-                // Could open booking detail
-                toast.info(`Booking #${id}`);
+                const b = bookings.find((x) => x.id === id);
+                if (b) {
+                  if (b.packageId != null && b.status === "event") {
+                    setEventDashPkgId(b.packageId ?? null);
+                  } else {
+                    openEditBooking(b as Booking);
+                  }
+                }
               }}
-              onZoneClick={(zoneId, time) => {
-                handleCellClick(time || format(new Date(), "HH:00"), zoneId);
-              }}
+              onZoneClick={(zoneId) => openNewBooking(zoneId)}
             />
           )
         ) : (
@@ -395,20 +535,21 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <div className="inline-block min-w-full">
+              <div style={{ minWidth: TIME_COL_W + zones.length * ZONE_COL_W }}>
                 {/* Zone header row */}
-                <div className="flex border-b border-border/50 sticky top-0 bg-background/95 backdrop-blur z-20">
-                  <div className="w-16 shrink-0 border-r border-border/30 p-2" />
+                <div
+                  className="flex border-b border-border/50 sticky top-0 bg-background/95 backdrop-blur z-20"
+                  style={{ minWidth: TIME_COL_W + zones.length * ZONE_COL_W }}
+                >
+                  <div style={{ width: TIME_COL_W }} className="shrink-0 border-r border-border/30 p-2" />
                   {zones.map((zone) => (
                     <div
                       key={zone.id}
-                      className="flex-1 min-w-[180px] p-3 text-center border-r border-border/30"
+                      style={{ width: ZONE_COL_W }}
+                      className="shrink-0 p-3 text-center border-r border-border/30"
                     >
                       <div className="flex items-center justify-center gap-2 font-semibold text-sm">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: zone.color }}
-                        />
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: zone.color }} />
                         {zone.name}
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
@@ -427,7 +568,7 @@ export default function Home() {
                       style={{ top: nowLineTop }}
                     >
                       <div className="flex items-center">
-                        <div className="w-16 shrink-0 flex justify-end pr-1">
+                        <div style={{ width: TIME_COL_W }} className="flex justify-end pr-1">
                           <div className="w-2 h-2 rounded-full bg-red-500" />
                         </div>
                         <div className="flex-1 h-px bg-red-500/70" />
@@ -435,76 +576,164 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* Time rows */}
                   {timeSlots.map((time, rowIdx) => {
                     const slotMinutes =
                       parseInt(time.split(":")[0]) * 60 + parseInt(time.split(":")[1]);
-                    const isPast =
-                      isToday && slotMinutes < nowMinutes - 30;
+                    const isPast = isToday && slotMinutes < nowMinutes - 30;
 
                     return (
                       <div
                         key={time}
                         className={cn(
-                          "flex border-b border-border/20 group",
+                          "flex border-b border-border/20",
                           isPast && "opacity-50"
                         )}
-                        style={{ height: 60 }}
+                        style={{ height: ROW_H }}
                       >
-                        {/* Time label */}
-                        <div className="w-16 shrink-0 border-r border-border/20 flex items-start justify-center pt-1">
-                          <span className="text-[10px] font-mono text-muted-foreground">
-                            {time}
-                          </span>
+                        <div
+                          style={{ width: TIME_COL_W }}
+                          className="shrink-0 border-r border-border/20 flex items-start justify-center pt-1"
+                        >
+                          <span className="text-[10px] font-mono text-muted-foreground">{time}</span>
                         </div>
+                        {zones.map((zone) => (
+                          <div
+                            key={`${time}-${zone.id}`}
+                            style={{ width: ZONE_COL_W }}
+                            className="shrink-0 border-r border-border/20 relative cursor-pointer hover:bg-primary/5 transition-colors"
+                            onClick={() => handleCellClick(time, zone.id)}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
 
-                        {/* Zone cells */}
-                        {zones.map((zone) => {
-                          const slotBookings = gridBookings.filter(
-                            (b) =>
-                              b.zoneId === zone.id && b.startSlot === time
-                          );
+                  {/* Regular booking cards (not event bookings) */}
+                  {gridBookings
+                    .filter((b) => !eventBookingIds.has(b.id))
+                    .map((booking) => {
+                      const zoneIdx = zones.findIndex((z) => z.id === booking.zoneId);
+                      if (zoneIdx < 0) return null;
+                      const slotIdx = slotIndex.get(booking.startSlot) ?? 0;
+                      const top = slotIdx * ROW_H + 2;
+                      const left = TIME_COL_W + zoneIdx * ZONE_COL_W + 2;
+                      const height = booking.durationSlots * ROW_H - 4;
 
-                          return (
-                            <div
-                              key={`${time}-${zone.id}`}
-                              className="flex-1 min-w-[180px] border-r border-border/20 relative cursor-pointer hover:bg-primary/5 transition-colors"
-                              onClick={() => handleCellClick(time, zone.id)}
-                              data-testid={`cell-${time}-${zone.id}`}
-                            >
-                              {slotBookings.map((booking) => (
-                                <div
-                                  key={booking.id}
-                                  className={cn(
-                                    "absolute left-1 right-1 top-1 rounded-lg border overflow-hidden z-10 shadow-sm p-2",
-                                    getStatusColor(booking.status)
-                                  )}
-                                  style={{
-                                    height: booking.durationSlots * 60 - 8,
-                                    minHeight: 28,
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toast.info(
-                                      `${booking.clientName || "Booking"} — ${booking.status}`
-                                    );
-                                  }}
-                                  data-testid={`booking-card-${booking.id}`}
-                                >
-                                  <div className="font-semibold text-xs truncate leading-tight">
-                                    {booking.clientName || "Гость"}
-                                  </div>
-                                  {booking.durationSlots > 1 && (
-                                    <div className="text-[10px] opacity-70 flex items-center gap-1.5 mt-0.5">
-                                      <span>{booking.guestsCount} гост.</span>
-                                      <span>·</span>
-                                      <span>{getStatusLabel(booking.status)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                      return (
+                        <div
+                          key={booking.id}
+                          className={cn(
+                            "absolute rounded-lg border overflow-hidden shadow-sm p-2 cursor-pointer z-10",
+                            "hover:shadow-md hover:z-20 transition-all duration-150",
+                            getStatusColor(booking.status)
+                          )}
+                          style={{
+                            top,
+                            left,
+                            width: ZONE_COL_W - 4,
+                            height: Math.max(height, 28),
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditBooking(booking as Booking);
+                          }}
+                        >
+                          <div className="font-semibold text-xs truncate leading-tight">
+                            {booking.clientName || "Гость"}
+                          </div>
+                          {booking.durationSlots > 1 && (
+                            <div className="text-[10px] opacity-70 flex items-center gap-1.5 mt-0.5">
+                              <span>{booking.guestsCount} гост.</span>
+                              <span>·</span>
+                              <span>{getStatusLabel(booking.status)}</span>
                             </div>
-                          );
-                        })}
+                          )}
+                          {booking.durationSlots > 2 && booking.clientPhone && (
+                            <div className="text-[10px] opacity-60 mt-0.5 truncate">
+                              {booking.clientPhone}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                  {/* Event overlays */}
+                  {Array.from(eventGroups.entries()).map(([pkgId, group]) => {
+                    const pkg = packages.find((p) => p.id === pkgId);
+                    if (!pkg || pkg.zoneIds.length === 0) return null;
+
+                    const zoneIndices = pkg.zoneIds
+                      .map((zid) => zones.findIndex((z) => z.id === zid))
+                      .filter((i) => i >= 0)
+                      .sort((a, b) => a - b);
+
+                    if (zoneIndices.length === 0) return null;
+
+                    const rep = group[0];
+                    const slotIdx = slotIndex.get(rep.startSlot) ?? 0;
+                    const top = slotIdx * ROW_H;
+                    const leftIdx = zoneIndices[0];
+                    const rightIdx = zoneIndices[zoneIndices.length - 1];
+                    const left = TIME_COL_W + leftIdx * ZONE_COL_W;
+                    const width = (rightIdx - leftIdx + 1) * ZONE_COL_W;
+                    const height = rep.durationSlots * ROW_H;
+
+                    const start = new Date(rep.startTime);
+                    const end = new Date(rep.endTime);
+
+                    return (
+                      <div
+                        key={`event-${pkgId}`}
+                        className="absolute z-20 cursor-pointer"
+                        style={{ top, left, width, height }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEventDashPkgId(pkgId);
+                        }}
+                      >
+                        <div
+                          className={cn(
+                            "w-full h-full rounded-xl border-2 border-blue-500/50",
+                            "bg-blue-500/10 backdrop-blur-sm",
+                            "hover:bg-blue-500/20 hover:border-blue-400/70 transition-all duration-200",
+                            "flex flex-col p-3 overflow-hidden shadow-lg",
+                            "relative"
+                          )}
+                        >
+                          {/* Top color bar */}
+                          <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-xl" />
+
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-lg">🎉</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-sm text-blue-200 truncate">
+                                {rep.clientName || "Мероприятие"}
+                              </div>
+                              <div className="text-[10px] text-blue-300/70 font-semibold">
+                                {pkg.name}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-[10px] bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full font-semibold border border-blue-500/40">
+                              {rep.guestsCount} гост.
+                            </div>
+                          </div>
+
+                          <div className="text-[10px] text-blue-300/60 mb-1">
+                            {pkg.zoneIds
+                              .map((zid) => zones.find((z) => z.id === zid)?.name)
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 text-xs text-blue-300/80 font-mono mt-auto">
+                            {format(start, "HH:mm")} – {format(end, "HH:mm")}
+                          </div>
+
+                          <div className="text-[9px] text-blue-300/40 mt-0.5 uppercase tracking-wider">
+                            Нажмите для подробностей
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -515,22 +744,29 @@ export default function Home() {
         )}
       </div>
 
-      {/* New Booking Modal */}
+      {/* Booking Modal (create / edit) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-base">Новая бронь</DialogTitle>
+            <DialogTitle className="text-base">
+              {editingId ? "Редактировать бронь" : "Новая бронь"}
+            </DialogTitle>
           </DialogHeader>
+
           <div className="grid gap-3 py-2">
+            {/* Date + time row */}
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Дата</Label>
-                <Input
-                  type="date"
-                  className="h-8 text-xs"
-                  value={form.date}
-                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                  data-testid="input-booking-date"
+                <DatePicker
+                  value={formDate}
+                  onChange={(d) => setForm((f) => ({ ...f, date: format(d, "yyyy-MM-dd") }))}
+                  align="left"
+                  trigger={
+                    <button className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs text-left hover:bg-muted/30 transition-colors">
+                      {format(formDate, "d MMM", { locale: ru })}
+                    </button>
+                  }
                 />
               </div>
               <div className="space-y-1.5">
@@ -540,7 +776,6 @@ export default function Home() {
                   className="h-8 text-xs"
                   value={form.startTime}
                   onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-                  data-testid="input-booking-start"
                 />
               </div>
               <div className="space-y-1.5">
@@ -550,50 +785,112 @@ export default function Home() {
                   className="h-8 text-xs"
                   value={form.endTime}
                   onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-                  data-testid="input-booking-end"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Зона</Label>
-                <Select
-                  value={form.zoneId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, zoneId: v }))}
-                >
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-zone">
-                    <SelectValue placeholder="Выберите зону" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {zones.map((z) => (
-                      <SelectItem key={z.id} value={z.id.toString()}>
-                        {z.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Тип сеанса</Label>
-                <Select
-                  value={form.sessionTypeId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, sessionTypeId: v }))}
-                >
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-session-type">
-                    <SelectValue placeholder="Выберите тип" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sessionTypes.map((st) => (
-                      <SelectItem key={st.id} value={st.id.toString()}>
-                        {st.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Event checkbox */}
+            <div className="flex items-center gap-3 py-1 px-3 rounded-lg bg-blue-500/8 border border-blue-500/20">
+              <input
+                id="is-event"
+                type="checkbox"
+                checked={form.isEvent}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    isEvent: e.target.checked,
+                    status: e.target.checked ? "event" : "confirmed",
+                    packageId: "",
+                  }))
+                }
+                className="w-4 h-4 accent-blue-500"
+              />
+              <label htmlFor="is-event" className="flex items-center gap-2 text-xs font-semibold cursor-pointer select-none text-blue-300">
+                <Package className="w-3.5 h-3.5" />
+                Мероприятие (пакет)
+              </label>
             </div>
 
+            {/* Package dropdown (if event) */}
+            {form.isEvent && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Пакет мероприятия</Label>
+                <Select
+                  value={form.packageId}
+                  onValueChange={(v) => {
+                    const pkg = packages.find((p) => p.id === Number(v));
+                    setForm((f) => ({
+                      ...f,
+                      packageId: v,
+                      guestsCount: pkg ? pkg.maxGuests.toString() : f.guestsCount,
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Выберите пакет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {packages.map((p) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedPkg && (
+                  <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 text-[11px] text-blue-300 space-y-1">
+                    <div className="font-semibold">{selectedPkg.name}</div>
+                    {selectedPkg.description && <div className="text-blue-300/70">{selectedPkg.description}</div>}
+                    <div>
+                      Зоны:{" "}
+                      {selectedPkg.zoneIds
+                        .map((zid) => zones.find((z) => z.id === zid)?.name)
+                        .filter(Boolean)
+                        .join(", ") || "—"}
+                    </div>
+                    <div>Макс. гостей: {selectedPkg.maxGuests}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Zone + session type (only if not event) */}
+            {!form.isEvent && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Зона</Label>
+                  <Select value={form.zoneId} onValueChange={(v) => setForm((f) => ({ ...f, zoneId: v }))}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Выберите зону" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {zones.map((z) => (
+                        <SelectItem key={z.id} value={z.id.toString()}>
+                          {z.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Тип сеанса</Label>
+                  <Select value={form.sessionTypeId} onValueChange={(v) => setForm((f) => ({ ...f, sessionTypeId: v }))}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Выберите тип" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sessionTypes.map((st) => (
+                        <SelectItem key={st.id} value={st.id.toString()}>
+                          {st.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* Client name */}
             <div className="space-y-1.5">
               <Label className="text-xs">Имя клиента *</Label>
               <Input
@@ -601,10 +898,10 @@ export default function Home() {
                 placeholder="Полное имя"
                 value={form.clientName}
                 onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))}
-                data-testid="input-client-name"
               />
             </div>
 
+            {/* Phone + guests */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Телефон</Label>
@@ -613,7 +910,6 @@ export default function Home() {
                   placeholder="+7 xxx xxx-xx-xx"
                   value={form.clientPhone}
                   onChange={(e) => setForm((f) => ({ ...f, clientPhone: e.target.value }))}
-                  data-testid="input-client-phone"
                 />
               </div>
               <div className="space-y-1.5">
@@ -624,29 +920,39 @@ export default function Home() {
                   min="1"
                   value={form.guestsCount}
                   onChange={(e) => setForm((f) => ({ ...f, guestsCount: e.target.value }))}
-                  data-testid="input-guests"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Статус</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
-                >
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="confirmed">Подтверждено</SelectItem>
-                    <SelectItem value="pending">Ожидание</SelectItem>
-                    <SelectItem value="event">Мероприятие</SelectItem>
-                    <SelectItem value="cancelled">Отменено</SelectItem>
-                  </SelectContent>
-                </Select>
+            {/* Status + admin (not for events) */}
+            {!form.isEvent && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Статус</Label>
+                  <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="confirmed">Подтверждено</SelectItem>
+                      <SelectItem value="pending">Ожидание</SelectItem>
+                      <SelectItem value="event">Мероприятие</SelectItem>
+                      <SelectItem value="cancelled">Отменено</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Администратор</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    placeholder="Имя администратора"
+                    value={form.adminName}
+                    onChange={(e) => setForm((f) => ({ ...f, adminName: e.target.value }))}
+                  />
+                </div>
               </div>
+            )}
+            {form.isEvent && (
               <div className="space-y-1.5">
                 <Label className="text-xs">Администратор</Label>
                 <Input
@@ -654,11 +960,11 @@ export default function Home() {
                   placeholder="Имя администратора"
                   value={form.adminName}
                   onChange={(e) => setForm((f) => ({ ...f, adminName: e.target.value }))}
-                  data-testid="input-admin"
                 />
               </div>
-            </div>
+            )}
 
+            {/* Notes */}
             <div className="space-y-1.5">
               <Label className="text-xs">Заметки</Label>
               <Input
@@ -666,21 +972,57 @@ export default function Home() {
                 placeholder="Дополнительные примечания"
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                data-testid="input-notes"
               />
             </div>
 
-            <Button
-              className="w-full mt-1"
-              onClick={handleSubmit}
-              disabled={createBooking.isPending}
-              data-testid="button-submit-booking"
-            >
-              {createBooking.isPending ? "Создание..." : "Создать бронь"}
-            </Button>
+            {/* Actions */}
+            <div className="flex gap-2 mt-1">
+              {editingId !== null && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-9 gap-1.5"
+                  onClick={() => {
+                    if (confirm("Удалить бронь?")) {
+                      deleteBooking.mutate({ id: editingId });
+                    }
+                  }}
+                  disabled={deleteBooking.isPending}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              <Button
+                className="flex-1"
+                onClick={handleSubmit}
+                disabled={createBooking.isPending || updateBooking.isPending}
+              >
+                {createBooking.isPending || updateBooking.isPending
+                  ? "Сохранение..."
+                  : editingId
+                  ? "Сохранить изменения"
+                  : form.isEvent && selectedPkg
+                  ? `Создать для ${selectedPkg.zoneIds.length} зон`
+                  : "Создать бронь"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Event Dashboard */}
+      {eventDashData && (
+        <EventDashboard
+          bookings={eventDashData.bookings as Parameters<typeof EventDashboard>[0]["bookings"]}
+          pkg={eventDashData.pkg as Parameters<typeof EventDashboard>[0]["pkg"]}
+          zones={zones}
+          onClose={() => setEventDashPkgId(null)}
+          onEditBooking={(b) => {
+            setEventDashPkgId(null);
+            openEditBooking(b as Booking);
+          }}
+        />
+      )}
     </div>
   );
 }

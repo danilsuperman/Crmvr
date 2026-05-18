@@ -39,6 +39,9 @@ import type {
   HealthStatus,
   ListBookingsParams,
   ListClientsParams,
+  Package,
+  PackageInput,
+  PackageUpdate,
   SessionType,
   SessionTypeInput,
   SessionTypeUpdate,
@@ -424,6 +427,296 @@ export const useDeleteZone = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteZoneMutationOptions(options));
+    }
+
+export const getListPackagesUrl = () => {
+
+
+
+
+  return `/api/packages`
+}
+
+/**
+ * @summary List all event packages
+ */
+export const listPackages = async ( options?: RequestInit): Promise<Package[]> => {
+
+  return customFetch<Package[]>(getListPackagesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPackagesQueryKey = () => {
+    return [
+    `/api/packages`
+    ] as const;
+    }
+
+
+export const getListPackagesQueryOptions = <TData = Awaited<ReturnType<typeof listPackages>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPackages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPackagesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPackages>>> = ({ signal }) => listPackages({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPackages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPackagesQueryResult = NonNullable<Awaited<ReturnType<typeof listPackages>>>
+export type ListPackagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all event packages
+ */
+
+export function useListPackages<TData = Awaited<ReturnType<typeof listPackages>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPackages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPackagesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreatePackageUrl = () => {
+
+
+
+
+  return `/api/packages`
+}
+
+/**
+ * @summary Create an event package
+ */
+export const createPackage = async (packageInput: PackageInput, options?: RequestInit): Promise<Package> => {
+
+  return customFetch<Package>(getCreatePackageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      packageInput,)
+  }
+);}
+
+
+
+
+export const getCreatePackageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPackage>>, TError,{data: BodyType<PackageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPackage>>, TError,{data: BodyType<PackageInput>}, TContext> => {
+
+const mutationKey = ['createPackage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPackage>>, {data: BodyType<PackageInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPackage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePackageMutationResult = NonNullable<Awaited<ReturnType<typeof createPackage>>>
+    export type CreatePackageMutationBody = BodyType<PackageInput>
+    export type CreatePackageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create an event package
+ */
+export const useCreatePackage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPackage>>, TError,{data: BodyType<PackageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPackage>>,
+        TError,
+        {data: BodyType<PackageInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePackageMutationOptions(options));
+    }
+
+export const getUpdatePackageUrl = (id: number,) => {
+
+
+
+
+  return `/api/packages/${id}`
+}
+
+/**
+ * @summary Update an event package
+ */
+export const updatePackage = async (id: number,
+    packageUpdate: PackageUpdate, options?: RequestInit): Promise<Package> => {
+
+  return customFetch<Package>(getUpdatePackageUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      packageUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdatePackageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePackage>>, TError,{id: number;data: BodyType<PackageUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePackage>>, TError,{id: number;data: BodyType<PackageUpdate>}, TContext> => {
+
+const mutationKey = ['updatePackage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePackage>>, {id: number;data: BodyType<PackageUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePackage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePackageMutationResult = NonNullable<Awaited<ReturnType<typeof updatePackage>>>
+    export type UpdatePackageMutationBody = BodyType<PackageUpdate>
+    export type UpdatePackageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update an event package
+ */
+export const useUpdatePackage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePackage>>, TError,{id: number;data: BodyType<PackageUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePackage>>,
+        TError,
+        {id: number;data: BodyType<PackageUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdatePackageMutationOptions(options));
+    }
+
+export const getDeletePackageUrl = (id: number,) => {
+
+
+
+
+  return `/api/packages/${id}`
+}
+
+/**
+ * @summary Delete an event package
+ */
+export const deletePackage = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeletePackageUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeletePackageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePackage>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePackage>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deletePackage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePackage>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePackage(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePackageMutationResult = NonNullable<Awaited<ReturnType<typeof deletePackage>>>
+
+    export type DeletePackageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an event package
+ */
+export const useDeletePackage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePackage>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePackage>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeletePackageMutationOptions(options));
     }
 
 export const getListSessionTypesUrl = () => {

@@ -14,6 +14,8 @@ tags:
     description: Zone management
   - name: sessionTypes
     description: Session type management
+  - name: packages
+    description: Event package management
   - name: clients
     description: Client management
   - name: bookings
@@ -97,6 +99,77 @@ paths:
       operationId: deleteZone
       tags: [zones]
       summary: Delete a zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # Packages
+  /packages:
+    get:
+      operationId: listPackages
+      tags: [packages]
+      summary: List all event packages
+      responses:
+        "200":
+          description: List of packages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Package"
+    post:
+      operationId: createPackage
+      tags: [packages]
+      summary: Create an event package
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PackageInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Package"
+
+  /packages/{id}:
+    patch:
+      operationId: updatePackage
+      tags: [packages]
+      summary: Update an event package
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PackageUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Package"
+    delete:
+      operationId: deletePackage
+      tags: [packages]
+      summary: Delete an event package
       parameters:
         - name: id
           in: path
@@ -721,6 +794,52 @@ components:
           items:
             $ref: "#/components/schemas/Booking"
 
+    Package:
+      type: object
+      required: [id, name, maxGuests, zoneIds]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        zoneIds:
+          type: array
+          items:
+            type: integer
+        maxGuests:
+          type: integer
+
+    PackageInput:
+      type: object
+      required: [name, maxGuests]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        zoneIds:
+          type: array
+          items:
+            type: integer
+        maxGuests:
+          type: integer
+
+    PackageUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        zoneIds:
+          type: array
+          items:
+            type: integer
+        maxGuests:
+          type: integer
+
     Booking:
       type: object
       required: [id, startTime, endTime, guestsCount, status]
@@ -745,6 +864,8 @@ components:
           type: ["string", "null"]
         sessionTypeColor:
           type: ["string", "null"]
+        packageId:
+          type: ["integer", "null"]
         startTime:
           type: string
         endTime:
@@ -773,6 +894,8 @@ components:
           type: integer
         sessionTypeId:
           type: integer
+        packageId:
+          type: integer
         startTime:
           type: string
         endTime:
@@ -799,6 +922,8 @@ components:
         zoneId:
           type: integer
         sessionTypeId:
+          type: integer
+        packageId:
           type: integer
         startTime:
           type: string

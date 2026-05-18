@@ -115,6 +115,8 @@ export interface Booking {
   sessionTypeName?: string | null;
   /** @nullable */
   sessionTypeColor?: string | null;
+  /** @nullable */
+  packageId?: number | null;
   startTime: string;
   endTime: string;
   guestsCount: number;
@@ -139,6 +141,29 @@ export interface ClientDetail {
   bookings?: Booking[];
 }
 
+export interface Package {
+  id: number;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  zoneIds: number[];
+  maxGuests: number;
+}
+
+export interface PackageInput {
+  name: string;
+  description?: string;
+  zoneIds?: number[];
+  maxGuests: number;
+}
+
+export interface PackageUpdate {
+  name?: string;
+  description?: string;
+  zoneIds?: number[];
+  maxGuests?: number;
+}
+
 export type BookingInputStatus = typeof BookingInputStatus[keyof typeof BookingInputStatus];
 
 
@@ -155,6 +180,7 @@ export interface BookingInput {
   clientPhone?: string;
   zoneId?: number;
   sessionTypeId?: number;
+  packageId?: number;
   startTime: string;
   endTime: string;
   guestsCount: number;
@@ -179,6 +205,7 @@ export interface BookingUpdate {
   clientPhone?: string;
   zoneId?: number;
   sessionTypeId?: number;
+  packageId?: number;
   startTime?: string;
   endTime?: string;
   guestsCount?: number;

@@ -13,6 +13,7 @@ export interface BookingUpdate {
   clientPhone?: string;
   zoneId?: number;
   sessionTypeId?: number;
+  packageId?: number;
   startTime?: string;
   endTime?: string;
   guestsCount?: number;

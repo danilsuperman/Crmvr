@@ -9,6 +9,7 @@ export const bookingsTable = pgTable("bookings", {
   clientPhone: text("client_phone"),
   zoneId: integer("zone_id"),
   sessionTypeId: integer("session_type_id"),
+  packageId: integer("package_id"),
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   endTime: timestamp("end_time", { withTimezone: true }).notNull(),
   guestsCount: integer("guests_count").notNull().default(1),

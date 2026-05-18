@@ -27,6 +27,8 @@ export interface Booking {
   sessionTypeName?: string | null;
   /** @nullable */
   sessionTypeColor?: string | null;
+  /** @nullable */
+  packageId?: number | null;
   startTime: string;
   endTime: string;
   guestsCount: number;

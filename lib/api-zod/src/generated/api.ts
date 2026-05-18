@@ -79,6 +79,61 @@ export const DeleteZoneParams = zod.object({
 
 
 /**
+ * @summary List all event packages
+ */
+export const ListPackagesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "zoneIds": zod.array(zod.number()),
+  "maxGuests": zod.number()
+})
+export const ListPackagesResponse = zod.array(ListPackagesResponseItem)
+
+
+/**
+ * @summary Create an event package
+ */
+export const CreatePackageBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string().optional(),
+  "zoneIds": zod.array(zod.number()).optional(),
+  "maxGuests": zod.number()
+})
+
+
+/**
+ * @summary Update an event package
+ */
+export const UpdatePackageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdatePackageBody = zod.object({
+  "name": zod.string().optional(),
+  "description": zod.string().optional(),
+  "zoneIds": zod.array(zod.number()).optional(),
+  "maxGuests": zod.number().optional()
+})
+
+export const UpdatePackageResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "zoneIds": zod.array(zod.number()),
+  "maxGuests": zod.number()
+})
+
+
+/**
+ * @summary Delete an event package
+ */
+export const DeletePackageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary List all session types
  */
 export const ListSessionTypesResponseItem = zod.object({
@@ -185,6 +240,7 @@ export const GetClientResponse = zod.object({
   "sessionTypeId": zod.number().nullish(),
   "sessionTypeName": zod.string().nullish(),
   "sessionTypeColor": zod.string().nullish(),
+  "packageId": zod.number().nullish(),
   "startTime": zod.string(),
   "endTime": zod.string(),
   "guestsCount": zod.number(),
@@ -247,6 +303,7 @@ export const ListBookingsResponseItem = zod.object({
   "sessionTypeId": zod.number().nullish(),
   "sessionTypeName": zod.string().nullish(),
   "sessionTypeColor": zod.string().nullish(),
+  "packageId": zod.number().nullish(),
   "startTime": zod.string(),
   "endTime": zod.string(),
   "guestsCount": zod.number(),
@@ -266,6 +323,7 @@ export const CreateBookingBody = zod.object({
   "clientPhone": zod.string().optional(),
   "zoneId": zod.number().optional(),
   "sessionTypeId": zod.number().optional(),
+  "packageId": zod.number().optional(),
   "startTime": zod.string(),
   "endTime": zod.string(),
   "guestsCount": zod.number(),
@@ -293,6 +351,7 @@ export const GetBookingResponse = zod.object({
   "sessionTypeId": zod.number().nullish(),
   "sessionTypeName": zod.string().nullish(),
   "sessionTypeColor": zod.string().nullish(),
+  "packageId": zod.number().nullish(),
   "startTime": zod.string(),
   "endTime": zod.string(),
   "guestsCount": zod.number(),
@@ -315,6 +374,7 @@ export const UpdateBookingBody = zod.object({
   "clientPhone": zod.string().optional(),
   "zoneId": zod.number().optional(),
   "sessionTypeId": zod.number().optional(),
+  "packageId": zod.number().optional(),
   "startTime": zod.string().optional(),
   "endTime": zod.string().optional(),
   "guestsCount": zod.number().optional(),
@@ -334,6 +394,7 @@ export const UpdateBookingResponse = zod.object({
   "sessionTypeId": zod.number().nullish(),
   "sessionTypeName": zod.string().nullish(),
   "sessionTypeColor": zod.string().nullish(),
+  "packageId": zod.number().nullish(),
   "startTime": zod.string(),
   "endTime": zod.string(),
   "guestsCount": zod.number(),
