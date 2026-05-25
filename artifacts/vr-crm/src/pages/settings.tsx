@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, User, Camera, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +76,23 @@ export default function Settings() {
   useListZones();
   const isLoadingZones = false;
   const [zones, setZones] = useLocalStorage("vrpark_zones", MOCK_ZONES_DATA);
+
+  // Profile state
+  const [profile, setProfile] = useLocalStorage("vrpark_profile", {
+    name: "Дмитрий Козлов",
+    phone: "+7 (999) 123-45-67",
+    email: "admin@vrpark.co",
+    position: "Владелец",
+    avatar: "",
+    parkName: "VR Park Moscow",
+    city: "Москва",
+    bio: "",
+  });
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // Role permissions state
+  const [rolePermissions, setRolePermissions] = useLocalStorage<Record<string, Record<string, boolean>>>("vrpark_role_permissions", ROLE_PERMISSIONS);
+  const [permSaved, setPermSaved] = useState(false);
 
   // Users state
   const [users, setUsers] = useState(MOCK_USERS);
@@ -194,6 +211,7 @@ export default function Settings() {
       <div className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6">
         <Tabs defaultValue="zones" className="w-full max-w-4xl">
           <TabsList className="mb-4 bg-muted/30 border border-border/50 h-9 flex-wrap gap-1">
+            <TabsTrigger value="profile" className="text-xs">Профиль</TabsTrigger>
             <TabsTrigger value="zones" className="text-xs">Зоны</TabsTrigger>
             <TabsTrigger value="sessions" className="text-xs">Типы сеансов</TabsTrigger>
             <TabsTrigger value="packages" className="text-xs">Пакеты</TabsTrigger>
@@ -202,6 +220,80 @@ export default function Settings() {
             <TabsTrigger value="salary" className="text-xs">Зарплата</TabsTrigger>
             <TabsTrigger value="system" className="text-xs">Система</TabsTrigger>
           </TabsList>
+
+          {/* Profile tab */}
+          <TabsContent value="profile" className="space-y-4">
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><User className="w-4 h-4" /> Личный профиль</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center text-xl font-bold text-primary border-2 border-primary/20 overflow-hidden">
+                      {profile.avatar ? <img src={profile.avatar} className="w-full h-full object-cover" alt="avatar" /> : profile.name.charAt(0)}
+                    </div>
+                    <button className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:bg-primary/90 transition-colors">
+                      <Camera className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">{profile.name}</p>
+                    <p className="text-xs text-muted-foreground">{profile.position}</p>
+                    <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Имя</Label>
+                    <Input className="h-8 text-sm" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Должность</Label>
+                    <Input className="h-8 text-sm" value={profile.position} onChange={e => setProfile(p => ({ ...p, position: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Телефон</Label>
+                    <Input className="h-8 text-sm" type="tel" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email</Label>
+                    <Input className="h-8 text-sm" type="email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Building2 className="w-4 h-4" /> Данные парка</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Название парка</Label>
+                    <Input className="h-8 text-sm" value={profile.parkName} onChange={e => setProfile(p => ({ ...p, parkName: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Город</Label>
+                    <Input className="h-8 text-sm" value={profile.city} onChange={e => setProfile(p => ({ ...p, city: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">О парке</Label>
+                  <textarea
+                    className="w-full text-sm border border-border/50 rounded-lg p-2.5 bg-card/30 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
+                    rows={3}
+                    value={profile.bio}
+                    onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))}
+                    placeholder="Расскажите о вашем VR-парке..."
+                  />
+                </div>
+                <Button className="w-full h-8 text-xs" onClick={() => { setProfileSaved(true); toast.success("Профиль сохранён"); setTimeout(() => setProfileSaved(false), 2000); }}>
+                  {profileSaved ? "Сохранено!" : "Сохранить профиль"}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Zones tab */}
           <TabsContent value="zones" className="space-y-4">
@@ -448,23 +540,35 @@ export default function Settings() {
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
-                    { key: "finances", label: "Финансы" },
-                    { key: "devices", label: "Устройства" },
-                    { key: "analytics", label: "Аналитика" },
-                    { key: "bookings", label: "Бронирования" },
-                    { key: "settings", label: "Настройки" },
+                    { key: "finances", label: "Финансы", desc: "Доступ к финансам и выручке" },
+                    { key: "devices", label: "Устройства", desc: "Управление устройствами" },
+                    { key: "analytics", label: "Аналитика", desc: "Просмотр отчётов и данных" },
+                    { key: "bookings", label: "Бронирования", desc: "Создание и изменение броней" },
+                    { key: "settings", label: "Настройки", desc: "Доступ к настройкам CRM" },
                   ].map((perm) => {
-                    const has = ROLE_PERMISSIONS[selectedRole]?.[perm.key] ?? false;
+                    const has = rolePermissions[selectedRole]?.[perm.key] ?? false;
                     return (
-                      <div key={perm.key} className={cn("flex items-center gap-2 p-2 rounded-lg border text-xs", has ? "border-green-500/30 bg-green-500/5 text-green-400" : "border-border/50 bg-card/20 text-muted-foreground/50")}>
-                        <CheckCircle2 className={cn("w-3.5 h-3.5 shrink-0", has ? "text-green-400" : "text-muted-foreground/30")} />
-                        {perm.label}
+                      <div key={perm.key} className={cn("flex items-center justify-between p-2.5 rounded-lg border text-xs gap-3", has ? "border-green-500/30 bg-green-500/5" : "border-border/50 bg-card/20")}>
+                        <div className="min-w-0">
+                          <p className={cn("font-medium", has ? "text-green-400" : "text-foreground")}>{perm.label}</p>
+                          <p className="text-[10px] text-muted-foreground/60 truncate">{perm.desc}</p>
+                        </div>
+                        <Switch
+                          checked={has}
+                          onCheckedChange={val => setRolePermissions(prev => ({
+                            ...prev,
+                            [selectedRole]: { ...(prev[selectedRole] ?? {}), [perm.key]: val }
+                          }))}
+                        />
                       </div>
                     );
                   })}
                 </div>
+                <Button size="sm" className="h-7 text-xs w-full mt-1" variant="outline" onClick={() => { setPermSaved(true); toast.success("Права сохранены"); setTimeout(() => setPermSaved(false), 2000); }}>
+                  {permSaved ? <><CheckCircle2 className="w-3 h-3 mr-1.5" />Сохранено</>  : "Сохранить права доступа"}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

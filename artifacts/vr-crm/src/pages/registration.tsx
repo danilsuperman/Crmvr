@@ -558,13 +558,19 @@ export default function Registration() {
     { id: 6, name: "Motion", color: "#10b981", capacity: 1, openTime: "11:00", closeTime: "21:00" },
   ];
   const [settingsZones, setSettingsZones] = useLocalStorage<SettingsZone[]>("vrpark_zones", DEFAULT_SETTINGS_ZONES_DATA);
-  const [constructorZoneMeta, setConstructorZoneMeta] = useLocalStorage<Record<string, { description: string; ageLimit: number; enabled: boolean }>>("vrpark_zone_constructor_meta", {});
+  const [registrationSessionTypes] = useLocalStorage<Array<{ id: number; name: string; color: string; minDuration: number; price?: number }>>("vrpark_session_types", [
+    { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30, price: 1200 },
+    { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60, price: 2000 },
+    { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90, price: 3500 },
+    { id: 4, name: "Максимальный 120 мин", color: "#10b981", minDuration: 120, price: 4800 },
+  ]);
+  const [constructorZoneMeta, setConstructorZoneMeta] = useLocalStorage<Record<string, { description: string; ageLimit: number; enabled: boolean; price?: number; priceMode?: "per_person" | "per_hour"; sessionTypeIds?: number[] }>>("vrpark_zone_constructor_meta", {});
   const [addZoneOpen, setAddZoneOpen] = useState(false);
   const [newZoneForm, setNewZoneForm] = useState({ name: "", color: "#6366f1", capacity: 2 });
 
   const getConstructorMeta = (zoneId: number) =>
-    constructorZoneMeta[String(zoneId)] ?? { description: "", ageLimit: 7, enabled: true };
-  const updateConstructorMeta = (zoneId: number, updates: Partial<{ description: string; ageLimit: number; enabled: boolean }>) =>
+    constructorZoneMeta[String(zoneId)] ?? { description: "", ageLimit: 7, enabled: true, price: undefined, priceMode: "per_person" as const, sessionTypeIds: [] };
+  const updateConstructorMeta = (zoneId: number, updates: Partial<{ description: string; ageLimit: number; enabled: boolean; price: number; priceMode: "per_person" | "per_hour"; sessionTypeIds: number[] }>) =>
     setConstructorZoneMeta(prev => ({ ...prev, [String(zoneId)]: { ...getConstructorMeta(zoneId), ...updates } }));
   const handleAddNewZone = () => {
     if (!newZoneForm.name.trim()) return;
@@ -907,6 +913,68 @@ export default function Registration() {
                             value={meta.ageLimit}
                             onChange={e => updateConstructorMeta(zone.id, { ageLimit: Number(e.target.value) })}
                           />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs flex items-center gap-1"><DollarSign className="w-3 h-3" /> Стоимость (₽)</Label>
+                          <div className="flex gap-1.5">
+                            <Input
+                              className="h-8 text-xs"
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={meta.price ?? ""}
+                              onChange={e => updateConstructorMeta(zone.id, { price: e.target.value ? Number(e.target.value) : undefined })}
+                            />
+                            <div className="flex rounded-lg border border-border/50 overflow-hidden text-[10px] shrink-0">
+                              {(["per_person", "per_hour"] as const).map((mode) => (
+                                <button
+                                  key={mode}
+                                  onClick={() => updateConstructorMeta(zone.id, { priceMode: mode })}
+                                  className={cn(
+                                    "px-2 py-1 transition-colors",
+                                    (meta.priceMode ?? "per_person") === mode
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-card/30 text-muted-foreground hover:bg-muted/40"
+                                  )}
+                                >
+                                  {mode === "per_person" ? "/ чел" : "/ час"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Типы сеансов в виджете</Label>
+                          <div className="flex flex-wrap gap-1">
+                            {registrationSessionTypes.map(st => {
+                              const checked = (meta.sessionTypeIds ?? []).includes(st.id);
+                              return (
+                                <button
+                                  key={st.id}
+                                  onClick={() => {
+                                    const current = meta.sessionTypeIds ?? [];
+                                    const updated = checked ? current.filter(id => id !== st.id) : [...current, st.id];
+                                    updateConstructorMeta(zone.id, { sessionTypeIds: updated });
+                                  }}
+                                  className={cn(
+                                    "flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] transition-all",
+                                    checked
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border/50 bg-card/20 text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
+                                  {st.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(meta.sessionTypeIds ?? []).length === 0 && (
+                            <p className="text-[10px] text-muted-foreground/60">Не выбрано — все доступны</p>
+                          )}
                         </div>
                       </div>
 

@@ -7,10 +7,12 @@ import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/store";
 import {
   X, ArrowLeft, ArrowRight, Check, Wand2, Hand, Package,
-  Users, Clock, ChevronRight, Gamepad2, Star, Calendar,
+  Users, Clock, ChevronLeft, ChevronRight, Gamepad2, Star, Calendar,
   CheckCircle2, Phone, Mail, MessageSquare, Sparkles,
   MapPin, Zap, ChevronDown, Play, Image, Film,
 } from "lucide-react";
+import { format, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, isSameMonth, isSameDay, isToday, addMonths, subMonths } from "date-fns";
+import { ru as ruLocale } from "date-fns/locale";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +55,13 @@ const DEFAULT_PACKAGES = [
 ];
 
 const TIME_SLOTS = ["11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
+
+const DEFAULT_SESSION_TYPES_WIDGET = [
+  { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30, price: 1200 },
+  { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60, price: 2000 },
+  { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90, price: 3500 },
+  { id: 4, name: "Максимальный 120 мин", color: "#10b981", minDuration: 120, price: 4800 },
+];
 const AUTO_QUESTIONS = [
   { q: "Сколько вас будет?", options: ["1 человек", "2-3 человека", "4-8 человек", "9+ человек"] },
   { q: "Возраст участников?", options: ["Дети 7-12 лет", "Подростки 13-17", "Взрослые 18+", "Смешанная группа"] },
@@ -450,6 +459,79 @@ function ZoneDetail({
   );
 }
 
+// ─── WIDGET DATE PICKER ───────────────────────────────────────────────────────
+
+function WidgetDatePicker({ value, onChange }: { value: Date; onChange: (d: Date) => void }) {
+  const [open, setOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(value);
+  const monthStart = startOfMonth(viewMonth);
+  const monthEnd = endOfMonth(monthStart);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const days: Date[] = [];
+  let d = calStart;
+  while (d <= monthEnd || days.length % 7 !== 0) {
+    days.push(d);
+    d = addDays(d, 1);
+    if (days.length > 42) break;
+  }
+  const DOW = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <button onClick={() => onChange(subDays(value, 1))} className="w-8 h-8 rounded-lg border border-border/50 bg-card/30 hover:bg-muted/40 flex items-center justify-center shrink-0 transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button onClick={() => setOpen(v => !v)} className="flex-1 h-8 rounded-lg border border-border/50 bg-card/30 hover:bg-primary/5 hover:border-primary/40 text-sm font-medium transition-all flex items-center justify-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5 text-primary/60" />
+          <span className="capitalize">{format(value, "d MMMM, EEE", { locale: ruLocale })}</span>
+        </button>
+        <button onClick={() => onChange(addDays(value, 1))} className="w-8 h-8 rounded-lg border border-border/50 bg-card/30 hover:bg-muted/40 flex items-center justify-center shrink-0 transition-colors">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      {open && (
+        <div className="bg-card border border-border/70 rounded-xl p-2.5">
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={() => setViewMonth(subMonths(viewMonth, 1))} className="w-6 h-6 rounded flex items-center justify-center hover:bg-muted/50 text-muted-foreground">
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-xs font-semibold capitalize">{format(viewMonth, "LLLL yyyy", { locale: ruLocale })}</span>
+            <button onClick={() => setViewMonth(addMonths(viewMonth, 1))} className="w-6 h-6 rounded flex items-center justify-center hover:bg-muted/50 text-muted-foreground">
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 mb-1">
+            {DOW.map(d => <div key={d} className="text-center text-[9px] font-medium text-muted-foreground py-0.5">{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-y-0.5">
+            {days.map((day, idx) => {
+              const inMonth = isSameMonth(day, viewMonth);
+              const selected = isSameDay(day, value);
+              const today = isToday(day);
+              return (
+                <button key={idx} onClick={() => { onChange(day); setViewMonth(day); setOpen(false); }} className={cn(
+                  "h-7 w-7 mx-auto rounded text-[11px] font-medium transition-all",
+                  !inMonth && "text-muted-foreground/20",
+                  inMonth && !selected && !today && "hover:bg-muted/50",
+                  today && !selected && "text-primary font-bold ring-1 ring-primary/30",
+                  selected && "bg-primary text-primary-foreground",
+                )}>
+                  {format(day, "d")}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-2 pt-1.5 border-t border-border/40 flex justify-center">
+            <button onClick={() => { const t = new Date(); onChange(t); setViewMonth(t); setOpen(false); }} className="text-[11px] text-primary hover:text-primary/80 font-medium">
+              Сегодня
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MANUAL FLOW ──────────────────────────────────────────────────────────────
 
 type SettingsZoneRaw = { id: number; name: string; color: string; capacity: number; openTime: string; closeTime: string };
@@ -464,8 +546,9 @@ const DEFAULT_SETTINGS_ZONES_WIDGET: SettingsZoneRaw[] = [
 
 function ManualFlow({ onBack }: { onBack: () => void }) {
   const [rawSettingsZones] = useLocalStorage<SettingsZoneRaw[]>("vrpark_zones", DEFAULT_SETTINGS_ZONES_WIDGET);
-  const [constructorMeta] = useLocalStorage<Record<string, { description: string; ageLimit: number; enabled: boolean }>>("vrpark_zone_constructor_meta", {});
+  const [constructorMeta] = useLocalStorage<Record<string, { description: string; ageLimit: number; enabled: boolean; sessionTypeIds?: number[]; price?: number; priceMode?: "per_person" | "per_hour" }>>("vrpark_zone_constructor_meta", {});
   const [storedZoneMedia] = useLocalStorage<Record<string, ZoneMedia>>("vrpark_zone_media", {});
+  const [sessionTypes] = useLocalStorage<Array<{ id: number; name: string; color: string; minDuration: number; price?: number }>>("vrpark_session_types", DEFAULT_SESSION_TYPES_WIDGET);
 
   // Merge settings zones with constructor meta into the shape the widget expects
   const storedZones = rawSettingsZones.map(z => {
@@ -485,9 +568,10 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
 
   const [step, setStep] = useState<"zones" | "zone-detail" | "datetime" | "contact" | "done">("zones");
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [guests, setGuests] = useState("2");
+  const [sessionTypeId, setSessionTypeId] = useState<number | null>(null);
+  const [guests, setGuests] = useState("1");
   const [contact, setContact] = useState({ name: "", phone: "", email: "", comment: "" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -513,10 +597,11 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
         <div className="w-full max-w-xs space-y-2 text-xs">
           {[
             { label: "Зона", val: zone?.name },
-            { label: "Дата", val: selectedDate || "Сегодня" },
+            { label: "Дата", val: format(selectedDate, "d MMMM", { locale: ruLocale }) },
             { label: "Время", val: selectedTime },
             { label: "Гостей", val: guests },
-          ].map(item => (
+            { label: "Сеанс", val: sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId)?.name : undefined },
+          ].filter(item => item.val).map(item => (
             <div key={item.label} className="flex justify-between p-2 rounded-lg bg-card/40 border border-border/50">
               <span className="text-muted-foreground">{item.label}</span>
               <span className="font-medium">{item.val || "—"}</span>
@@ -583,49 +668,76 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
     </div>
   );
 
-  if (step === "datetime") return (
-    <div className="flex flex-col h-full p-5 overflow-auto">
-      <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => { setSelectedZoneId(null); setStep("zones"); }} className="p-1 hover:bg-muted/40 rounded-lg"><ArrowLeft className="w-4 h-4 text-muted-foreground" /></button>
-        <div>
-          <p className="text-xs text-muted-foreground">{zone?.name}</p>
-          <h3 className="text-sm font-semibold">Дата и время</h3>
-        </div>
-      </div>
-      <div className="space-y-4 flex-1">
-        <div className="space-y-2">
-          <Label className="text-xs flex items-center gap-1"><Calendar className="w-3 h-3" /> Дата</Label>
-          <Input type="date" className="h-9 text-sm" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs">Количество гостей</Label>
-          <div className="flex gap-2">
-            {["1", "2", "3", "4"].map(n => (
-              <button key={n} onClick={() => setGuests(n)} className={cn("flex-1 h-9 rounded-lg border text-sm font-medium transition-all", guests === n ? "border-primary bg-primary text-primary-foreground" : "border-border/50 bg-card/30 hover:border-primary/40")}>
-                {n}
-              </button>
-            ))}
+  if (step === "datetime") {
+    const zoneMeta = selectedZoneId ? constructorMeta[selectedZoneId] : null;
+    const zoneSessionTypeIds = zoneMeta?.sessionTypeIds;
+    const availableSessionTypes = (zoneSessionTypeIds && zoneSessionTypeIds.length > 0)
+      ? sessionTypes.filter(st => zoneSessionTypeIds.includes(st.id))
+      : sessionTypes;
+    const guestOptions = Array.from({ length: Math.max(zone?.capacity ?? 4, 1) }, (_, i) => String(i + 1));
+    return (
+      <div className="flex flex-col h-full p-4 overflow-auto">
+        <div className="flex items-center gap-2 mb-3">
+          <button onClick={() => { setSelectedZoneId(null); setStep("zones"); }} className="p-1 hover:bg-muted/40 rounded-lg"><ArrowLeft className="w-4 h-4 text-muted-foreground" /></button>
+          <div>
+            <p className="text-xs text-muted-foreground">{zone?.name}</p>
+            <h3 className="text-sm font-semibold">Дата и время</h3>
           </div>
         </div>
-        <div className="space-y-2">
-          <Label className="text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> Свободное время</Label>
-          <div className="grid grid-cols-3 gap-2">
-            {TIME_SLOTS.slice(0, 9).map(t => {
-              const busy = ["12:30", "14:30", "16:30"].includes(t);
-              return (
-                <button key={t} disabled={busy} onClick={() => setSelectedTime(t)} className={cn("h-9 rounded-lg border text-xs font-mono font-medium transition-all", busy ? "border-border/20 bg-muted/10 text-muted-foreground/30 line-through cursor-not-allowed" : selectedTime === t ? "border-primary bg-primary text-primary-foreground" : "border-border/50 bg-card/30 hover:border-primary/40")}>
-                  {t}
+        <div className="space-y-3 flex-1">
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1"><Calendar className="w-3 h-3" /> Дата</Label>
+            <WidgetDatePicker value={selectedDate} onChange={d => { setSelectedDate(d); setSelectedTime(null); }} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Количество гостей</Label>
+            <div className="flex gap-1.5 flex-wrap">
+              {guestOptions.map(n => (
+                <button key={n} onClick={() => setGuests(n)} className={cn("h-8 min-w-[2rem] px-3 rounded-lg border text-sm font-medium transition-all", guests === n ? "border-primary bg-primary text-primary-foreground" : "border-border/50 bg-card/30 hover:border-primary/40")}>
+                  {n}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+          </div>
+          {availableSessionTypes.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1"><Zap className="w-3 h-3" /> Тип сеанса</Label>
+              <div className="space-y-1">
+                {availableSessionTypes.map(st => (
+                  <button key={st.id} onClick={() => setSessionTypeId(st.id === sessionTypeId ? null : st.id)} className={cn(
+                    "w-full flex items-center justify-between p-2 rounded-xl border text-xs font-medium transition-all",
+                    sessionTypeId === st.id ? "border-primary bg-primary/10 text-primary" : "border-border/50 bg-card/30 hover:border-primary/40"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
+                      <span>{st.name}</span>
+                    </div>
+                    {st.price ? <span className="font-bold">{st.price.toLocaleString("ru")} ₽</span> : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> Свободное время</Label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {TIME_SLOTS.slice(0, 9).map(t => {
+                const busy = ["12:30", "14:30", "16:30"].includes(t);
+                return (
+                  <button key={t} disabled={busy} onClick={() => setSelectedTime(t)} className={cn("h-8 rounded-lg border text-xs font-mono font-medium transition-all", busy ? "border-border/20 bg-muted/10 text-muted-foreground/30 line-through cursor-not-allowed" : selectedTime === t ? "border-primary bg-primary text-primary-foreground" : "border-border/50 bg-card/30 hover:border-primary/40")}>
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
+        <Button className="mt-3 w-full text-sm" disabled={!selectedTime} onClick={() => setStep("contact")}>
+          Далее <ArrowRight className="w-4 h-4 ml-1" />
+        </Button>
       </div>
-      <Button className="mt-4 w-full text-sm" disabled={!selectedTime} onClick={() => setStep("contact")}>
-        Далее <ArrowRight className="w-4 h-4 ml-1" />
-      </Button>
-    </div>
-  );
+    );
+  }
 
   if (step === "contact") return (
     <div className="flex flex-col h-full p-5 overflow-auto">
@@ -652,11 +764,18 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
         </div>
         <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5 text-xs">
           <p className="font-semibold text-sm">Итог</p>
-          {[{ l: "Зона", v: zone?.name }, { l: "Дата", v: selectedDate || "Сегодня" }, { l: "Время", v: selectedTime }, { l: "Гостей", v: guests }].map(item => (
+          {[
+            { l: "Зона", v: zone?.name },
+            { l: "Дата", v: format(selectedDate, "d MMMM", { locale: ruLocale }) },
+            { l: "Время", v: selectedTime },
+            { l: "Гостей", v: guests },
+            { l: "Сеанс", v: sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId)?.name : undefined },
+          ].filter(item => item.v).map(item => (
             <div key={item.l} className="flex justify-between"><span className="text-muted-foreground">{item.l}</span><span className="font-medium">{item.v}</span></div>
           ))}
           <div className="border-t border-primary/20 pt-1.5 flex justify-between font-semibold text-sm text-primary">
-            <span>Итого</span><span>от 2 500 ₽</span>
+            <span>Итого</span>
+            <span>{sessionTypeId && sessionTypes.find(s => s.id === sessionTypeId)?.price ? `${sessionTypes.find(s => s.id === sessionTypeId)!.price!.toLocaleString("ru")} ₽` : "от 1 200 ₽"}</span>
           </div>
         </div>
       </div>
@@ -780,7 +899,7 @@ function PackageFlow({ onBack }: { onBack: () => void }) {
   const [storedPkgMedia] = useLocalStorage<Record<string, PkgMedia>>("vrpark_pkg_media", {});
   const [step, setStep] = useState<"list" | "detail" | "datetime" | "contact" | "done">("list");
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [contact, setContact] = useState({ name: "", phone: "", email: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -867,31 +986,31 @@ function PackageFlow({ onBack }: { onBack: () => void }) {
   );
 
   if (step === "datetime") return (
-    <div className="flex flex-col h-full p-5 overflow-auto">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="flex flex-col h-full p-4 overflow-auto">
+      <div className="flex items-center gap-2 mb-3">
         <button onClick={() => { setSelectedPkgId(null); setStep("list"); }} className="p-1 hover:bg-muted/40 rounded-lg"><ArrowLeft className="w-4 h-4 text-muted-foreground" /></button>
         <div>
           <p className="text-xs text-muted-foreground">{pkg?.name}</p>
           <h3 className="text-sm font-semibold">Дата и время</h3>
         </div>
       </div>
-      <div className="space-y-4 flex-1">
-        <div className="space-y-2">
+      <div className="space-y-3 flex-1">
+        <div className="space-y-1.5">
           <Label className="text-xs flex items-center gap-1"><Calendar className="w-3 h-3" /> Дата</Label>
-          <Input type="date" className="h-9 text-sm" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+          <WidgetDatePicker value={selectedDate} onChange={d => { setSelectedDate(d); setSelectedTime(null); }} />
         </div>
-        <div className="space-y-2">
-          <Label className="text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> Время</Label>
-          <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> Свободное время</Label>
+          <div className="grid grid-cols-3 gap-1.5">
             {TIME_SLOTS.slice(0, 9).map(t => (
-              <button key={t} onClick={() => setSelectedTime(t)} className={cn("h-9 rounded-lg border text-xs font-mono font-medium transition-all", selectedTime === t ? "border-primary bg-primary text-primary-foreground" : "border-border/50 bg-card/30 hover:border-primary/40")}>
+              <button key={t} onClick={() => setSelectedTime(t)} className={cn("h-8 rounded-lg border text-xs font-mono font-medium transition-all", selectedTime === t ? "border-primary bg-primary text-primary-foreground" : "border-border/50 bg-card/30 hover:border-primary/40")}>
                 {t}
               </button>
             ))}
           </div>
         </div>
       </div>
-      <Button className="mt-4 w-full" disabled={!selectedTime} onClick={() => setStep("contact")}>
+      <Button className="mt-3 w-full" disabled={!selectedTime} onClick={() => setStep("contact")}>
         Далее <ArrowRight className="w-4 h-4 ml-1" />
       </Button>
     </div>
@@ -918,7 +1037,7 @@ function PackageFlow({ onBack }: { onBack: () => void }) {
         </div>
         <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5 text-xs">
           <p className="font-semibold text-sm">Итог</p>
-          {[{ l: "Пакет", v: pkg?.name }, { l: "Дата", v: selectedDate || "Сегодня" }, { l: "Время", v: selectedTime }].map(item => (
+          {[{ l: "Пакет", v: pkg?.name }, { l: "Дата", v: format(selectedDate, "d MMMM", { locale: ruLocale }) }, { l: "Время", v: selectedTime }].map(item => (
             <div key={item.l} className="flex justify-between"><span className="text-muted-foreground">{item.l}</span><span className="font-medium">{item.v}</span></div>
           ))}
           <div className="border-t border-primary/20 pt-1.5 flex justify-between font-semibold text-sm text-primary">
