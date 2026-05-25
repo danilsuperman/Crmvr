@@ -154,15 +154,16 @@ export default function Home() {
     { id: 107, clientId: 7, clientName: "Наталья Волкова", clientPhone: "+7 911 234-56-78", zoneId: 2, zoneName: "Arena B", zoneColor: "#8b5cf6", sessionTypeId: 2, sessionTypeName: "Стандарт 60 мин", sessionTypeColor: "#8b5cf6", packageId: null, startTime: `${dateStr}T17:00:00.000Z`, endTime: `${dateStr}T18:30:00.000Z`, guestsCount: 4, status: "confirmed", notes: null, adminName: null },
   ];
 
-  const { data: rawZones = [], refetch: refetchZones } = useListZones();
-  const zones = rawZones.length > 0 ? rawZones : MOCK_ZONES_HOME;
+  useListZones();
+  const [zones] = useLocalStorage("vrpark_zones", MOCK_ZONES_HOME);
   const isLoadingZones = false;
+  const refetchZones = () => {};
 
-  const { data: rawSessionTypes = [] } = useListSessionTypes();
-  const sessionTypes = rawSessionTypes.length > 0 ? rawSessionTypes : MOCK_SESSION_TYPES_HOME;
+  useListSessionTypes();
+  const [sessionTypes] = useLocalStorage("vrpark_session_types", MOCK_SESSION_TYPES_HOME);
 
-  const { data: rawPackages = [] } = useListPackages();
-  const packages = rawPackages.length > 0 ? rawPackages : MOCK_PACKAGES_HOME;
+  useListPackages();
+  const [packages] = useLocalStorage("vrpark_packages", MOCK_PACKAGES_HOME);
 
   const { data: rawBookings = [], refetch } = useListBookings(
     { date: dateStr },
