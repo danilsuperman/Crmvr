@@ -96,7 +96,7 @@ function renderBlocks(blocks: DescBlock[]) {
 
 // ─── LANDING SCREEN ───────────────────────────────────────────────────────────
 
-function LandingScreen({ pageDetail, onBook }: { pageDetail: PageDetail; onBook: () => void }) {
+function LandingScreen({ pageDetail, onSelect }: { pageDetail: PageDetail; onSelect: (mode: "auto" | "manual" | "package") => void }) {
   const [photoIdx, setPhotoIdx] = useState(0);
   const photos = pageDetail.photos;
 
@@ -172,11 +172,45 @@ function LandingScreen({ pageDetail, onBook }: { pageDetail: PageDetail; onBook:
         </div>
       </div>
 
-      <div className="p-4 border-t border-border/30">
-        <Button className="w-full" onClick={onBook}>
-          Забронировать <ArrowRight className="w-4 h-4 ml-1" />
-        </Button>
-        <p className="text-[10px] text-center text-muted-foreground/50 mt-2">VR Park · Онлайн-бронирование</p>
+      <div className="p-4 pt-0 space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground mb-1">Как хотите забронировать?</p>
+        <button onClick={() => onSelect("auto")} className="group w-full p-3 rounded-xl border border-border/50 bg-card/40 hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center shrink-0">
+              <Wand2 className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold">Подобрать автоматически</p>
+              <p className="text-[10px] text-muted-foreground">Ответьте на вопросы — найдём лучший вариант</p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-muted-foreground shrink-0" />
+          </div>
+        </button>
+        <button onClick={() => onSelect("manual")} className="group w-full p-3 rounded-xl border border-border/50 bg-card/40 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+              <Hand className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold">Выбрать вручную</p>
+              <p className="text-[10px] text-muted-foreground">Выберите зону с описанием и играми</p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-muted-foreground shrink-0" />
+          </div>
+        </button>
+        <button onClick={() => onSelect("package")} className="group w-full p-3 rounded-xl border border-border/50 bg-card/40 hover:border-green-500/50 hover:bg-green-500/5 transition-all text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-green-500/15 flex items-center justify-center shrink-0">
+              <Package className="w-4 h-4 text-green-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold">Выбрать пакет</p>
+              <p className="text-[10px] text-muted-foreground">День рождения, корпоратив, Horror Night</p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-muted-foreground shrink-0" />
+          </div>
+        </button>
+        <p className="text-[10px] text-center text-muted-foreground/50 pt-1">VR Park · Онлайн-бронирование</p>
       </div>
     </div>
   );
@@ -886,26 +920,23 @@ export function WidgetPreview() {
   const firstPublishedPage = pages.find(p => p.status === "published");
   const pageDetail = firstPublishedPage ? (pageDetails[firstPublishedPage.id] ?? { title: "", subtitle: "", descBlocks: [], photos: [], videoUrl: "" }) : { title: "", subtitle: "", descBlocks: [], photos: [], videoUrl: "" };
 
-  const [screen, setScreen] = useState<"landing" | "mode" | "auto" | "manual" | "package">("landing");
+  const [screen, setScreen] = useState<"landing" | "auto" | "manual" | "package">("landing");
 
   return (
     <div className="w-full h-[600px] bg-background border border-border/50 rounded-2xl overflow-hidden shadow-2xl flex flex-col relative">
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 z-10" />
 
       {screen === "landing" && (
-        <LandingScreen pageDetail={pageDetail as PageDetail} onBook={() => setScreen("mode")} />
-      )}
-      {screen === "mode" && (
-        <ModeScreen onSelect={setScreen} onBack={() => setScreen("landing")} />
+        <LandingScreen pageDetail={pageDetail as PageDetail} onSelect={setScreen} />
       )}
       {screen === "auto" && (
-        <AutoFlow onDone={() => setScreen("manual")} onBack={() => setScreen("mode")} />
+        <AutoFlow onDone={() => setScreen("manual")} onBack={() => setScreen("landing")} />
       )}
       {screen === "manual" && (
-        <ManualFlow onBack={() => setScreen("mode")} />
+        <ManualFlow onBack={() => setScreen("landing")} />
       )}
       {screen === "package" && (
-        <PackageFlow onBack={() => setScreen("mode")} />
+        <PackageFlow onBack={() => setScreen("landing")} />
       )}
     </div>
   );
