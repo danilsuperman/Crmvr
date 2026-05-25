@@ -12,6 +12,10 @@ import Events from "@/pages/events";
 import EventDetail from "@/pages/event-detail";
 import Settings from "@/pages/settings";
 import Profile from "@/pages/profile";
+import Control from "@/pages/control";
+import Devices from "@/pages/devices";
+import Analytics from "@/pages/analytics";
+import Registration from "@/pages/registration";
 
 const queryClient = new QueryClient();
 
@@ -20,10 +24,14 @@ function Router() {
     <Shell>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/control" component={Control} />
+        <Route path="/devices" component={Devices} />
         <Route path="/clients" component={Clients} />
         <Route path="/clients/:id" component={ClientDetail} />
         <Route path="/events" component={Events} />
         <Route path="/events/:id" component={EventDetail} />
+        <Route path="/analytics" component={Analytics} />
+        <Route path="/registration" component={Registration} />
         <Route path="/settings" component={Settings} />
         <Route path="/profile" component={Profile} />
         <Route component={NotFound} />

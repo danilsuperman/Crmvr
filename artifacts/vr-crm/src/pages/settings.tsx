@@ -18,20 +18,61 @@ import {
   getListPackagesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, Clock, Package, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const MOCK_USERS = [
+  { id: 1, name: "Дмитрий Козлов", email: "admin@vrpark.co", role: "Owner", status: "active" },
+  { id: 2, name: "Анна Петрова", email: "anna@vrpark.co", role: "Administrator", status: "active" },
+  { id: 3, name: "Михаил Сидоров", email: "misha@vrpark.co", role: "Operator", status: "active" },
+  { id: 4, name: "Светлана Иванова", email: "sveta@vrpark.co", role: "Cashier", status: "inactive" },
+  { id: 5, name: "Алексей Новиков", email: "alex@vrpark.co", role: "Technician", status: "active" },
+];
+
+const ROLES = ["Owner", "Administrator", "Operator", "Cashier", "Technician"];
+
+const ROLE_PERMISSIONS: Record<string, Record<string, boolean>> = {
+  Owner: { finances: true, devices: true, analytics: true, bookings: true, settings: true },
+  Administrator: { finances: true, devices: true, analytics: true, bookings: true, settings: true },
+  Operator: { finances: false, devices: true, analytics: false, bookings: true, settings: false },
+  Cashier: { finances: true, devices: false, analytics: false, bookings: true, settings: false },
+  Technician: { finances: false, devices: true, analytics: false, bookings: false, settings: false },
+};
 
 const ZONE_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#06b6d4"];
 
 export default function Settings() {
   const queryClient = useQueryClient();
   const { data: zones = [], isLoading: isLoadingZones } = useListZones();
+
+  // Users state
+  const [users, setUsers] = useState(MOCK_USERS);
+  const [selectedRole, setSelectedRole] = useState("Owner");
+  const [userModal, setUserModal] = useState<{ open: boolean; name: string; email: string; password: string; role: string }>({ open: false, name: "", email: "", password: "", role: "Operator" });
+
+  // SMS state
+  const [smsProvider, setSmsProvider] = useState("smsru");
+  const [smsApiKey, setSmsApiKey] = useState("");
+  const [smsSendConfirm, setSmsSendConfirm] = useState(true);
+  const [smsSendReminder, setSmsSendReminder] = useState(true);
+  const [smsSaved, setSmsSaved] = useState(false);
+
+  // Salary state
+  const [salaryMode, setSalaryMode] = useState<"fixed" | "hourly" | "percent" | "mixed">("fixed");
+  const [salaryFixed, setSalaryFixed] = useState("2000");
+  const [salaryHourly, setSalaryHourly] = useState("300");
+  const [salaryPercent, setSalaryPercent] = useState("5");
+  const [salaryMixedFixed, setSalaryMixedFixed] = useState("1500");
+  const [salaryMixedPercent, setSalaryMixedPercent] = useState("3");
   const { data: sessionTypes = [], isLoading: isLoadingSessionTypes } = useListSessionTypes();
   const { data: packages = [], isLoading: isLoadingPackages } = useListPackages();
 
@@ -111,10 +152,13 @@ export default function Settings() {
 
       <div className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6">
         <Tabs defaultValue="zones" className="w-full max-w-4xl">
-          <TabsList className="mb-4 bg-muted/30 border border-border/50 h-9">
+          <TabsList className="mb-4 bg-muted/30 border border-border/50 h-9 flex-wrap gap-1">
             <TabsTrigger value="zones" className="text-xs">Зоны</TabsTrigger>
             <TabsTrigger value="sessions" className="text-xs">Типы сеансов</TabsTrigger>
             <TabsTrigger value="packages" className="text-xs">Пакеты</TabsTrigger>
+            <TabsTrigger value="users" className="text-xs">Пользователи</TabsTrigger>
+            <TabsTrigger value="sms" className="text-xs">SMS</TabsTrigger>
+            <TabsTrigger value="salary" className="text-xs">Зарплата</TabsTrigger>
             <TabsTrigger value="system" className="text-xs">Система</TabsTrigger>
           </TabsList>
 
@@ -305,6 +349,190 @@ export default function Settings() {
             </div>
           </TabsContent>
 
+          {/* Users tab */}
+          <TabsContent value="users" className="space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-base font-semibold">Пользователи и роли</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Управляйте доступом сотрудников к CRM.</p>
+              </div>
+              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setUserModal({ open: true, name: "", email: "", password: "", role: "Operator" })}>
+                <UserPlus className="w-3.5 h-3.5" /> Добавить
+              </Button>
+            </div>
+
+            <div className="grid gap-2">
+              {users.map((user) => (
+                <Card key={user.id} className="bg-card/30 border-border/50">
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                          {user.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{user.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant="outline" className="text-[10px]">{user.role}</Badge>
+                        <Badge variant={user.status === "active" ? "default" : "secondary"} className="text-[10px]">
+                          {user.status === "active" ? "Активен" : "Неактивен"}
+                        </Badge>
+                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setUsers(us => us.filter(u => u.id !== user.id))}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Shield className="w-4 h-4" /> Права доступа по ролям</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {ROLES.map((r) => (
+                    <button key={r} onClick={() => setSelectedRole(r)} className={cn("text-xs px-2.5 py-1 rounded-md border transition-colors", selectedRole === r ? "bg-primary text-primary-foreground border-primary" : "border-border/50 text-muted-foreground hover:bg-muted/30")}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { key: "finances", label: "Финансы" },
+                    { key: "devices", label: "Устройства" },
+                    { key: "analytics", label: "Аналитика" },
+                    { key: "bookings", label: "Бронирования" },
+                    { key: "settings", label: "Настройки" },
+                  ].map((perm) => {
+                    const has = ROLE_PERMISSIONS[selectedRole]?.[perm.key] ?? false;
+                    return (
+                      <div key={perm.key} className={cn("flex items-center gap-2 p-2 rounded-lg border text-xs", has ? "border-green-500/30 bg-green-500/5 text-green-400" : "border-border/50 bg-card/20 text-muted-foreground/50")}>
+                        <CheckCircle2 className={cn("w-3.5 h-3.5 shrink-0", has ? "text-green-400" : "text-muted-foreground/30")} />
+                        {perm.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* SMS tab */}
+          <TabsContent value="sms" className="space-y-4">
+            <div>
+              <h2 className="text-base font-semibold">SMS подтверждение</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Настройте отправку SMS при бронировании.</p>
+            </div>
+
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Провайдер SMS</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  {["smsru", "turbosms", "twilio"].map((p) => (
+                    <button key={p} onClick={() => setSmsProvider(p)} className={cn("p-3 rounded-xl border text-xs font-medium transition-all capitalize", smsProvider === p ? "border-primary bg-primary/10 text-primary" : "border-border/50 bg-card/20 text-muted-foreground hover:bg-muted/20")}>
+                      {p === "smsru" ? "SMS.ru" : p === "turbosms" ? "TurboSMS" : "Twilio"}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">API ключ</Label>
+                  <Input className="h-8 text-sm font-mono" type="password" placeholder="Введите API ключ..." value={smsApiKey} onChange={(e) => setSmsApiKey(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">SMS-подтверждение при бронировании</Label>
+                    <Switch checked={smsSendConfirm} onCheckedChange={setSmsSendConfirm} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">Напоминание о сеансе</Label>
+                    <Switch checked={smsSendReminder} onCheckedChange={setSmsSendReminder} />
+                  </div>
+                </div>
+                <Button className="w-full h-8 text-xs" onClick={() => { setSmsSaved(true); toast.success("SMS настройки сохранены"); setTimeout(() => setSmsSaved(false), 2000); }}>
+                  {smsSaved ? "Сохранено!" : "Сохранить настройки"}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Salary tab */}
+          <TabsContent value="salary" className="space-y-4">
+            <div>
+              <h2 className="text-base font-semibold">Подсчёт зарплаты</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Настройте режим расчёта зарплаты сотрудников.</p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {([
+                { mode: "fixed", label: "Фиксированная", sub: "₽ / смена" },
+                { mode: "hourly", label: "Почасовая", sub: "₽ / час" },
+                { mode: "percent", label: "Процент", sub: "% от выручки" },
+                { mode: "mixed", label: "Смешанная", sub: "ставка + %" },
+              ] as const).map((m) => (
+                <button key={m.mode} onClick={() => setSalaryMode(m.mode)} className={cn("p-3 rounded-xl border text-left transition-all", salaryMode === m.mode ? "border-primary bg-primary/10" : "border-border/50 bg-card/20 hover:bg-muted/20")}>
+                  <p className={cn("text-xs font-semibold", salaryMode === m.mode ? "text-primary" : "text-foreground")}>{m.label}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{m.sub}</p>
+                </button>
+              ))}
+            </div>
+
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><DollarSign className="w-4 h-4" /> Параметры расчёта</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                {salaryMode === "fixed" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Ставка за смену (₽)</Label>
+                    <Input className="h-8 text-sm" type="number" value={salaryFixed} onChange={(e) => setSalaryFixed(e.target.value)} />
+                    <p className="text-[10px] text-muted-foreground">Пример: {Number(salaryFixed).toLocaleString("ru")} ₽ / смена</p>
+                  </div>
+                )}
+                {salaryMode === "hourly" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Ставка в час (₽)</Label>
+                    <Input className="h-8 text-sm" type="number" value={salaryHourly} onChange={(e) => setSalaryHourly(e.target.value)} />
+                    <p className="text-[10px] text-muted-foreground">Пример: {Number(salaryHourly).toLocaleString("ru")} ₽ / час × 8 = {(Number(salaryHourly) * 8).toLocaleString("ru")} ₽ / смена</p>
+                  </div>
+                )}
+                {salaryMode === "percent" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Процент от выручки (%)</Label>
+                    <Input className="h-8 text-sm" type="number" value={salaryPercent} onChange={(e) => setSalaryPercent(e.target.value)} />
+                    <p className="text-[10px] text-muted-foreground">Пример: {salaryPercent}% от 72 000 ₽ = {(72000 * Number(salaryPercent) / 100).toLocaleString("ru")} ₽</p>
+                  </div>
+                )}
+                {salaryMode === "mixed" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Фиксированная часть (₽ / смена)</Label>
+                      <Input className="h-8 text-sm" type="number" value={salaryMixedFixed} onChange={(e) => setSalaryMixedFixed(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Процент от выручки (%)</Label>
+                      <Input className="h-8 text-sm" type="number" value={salaryMixedPercent} onChange={(e) => setSalaryMixedPercent(e.target.value)} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Пример: {Number(salaryMixedFixed).toLocaleString("ru")} ₽ + {salaryMixedPercent}% от 72 000 ₽ = {(Number(salaryMixedFixed) + 72000 * Number(salaryMixedPercent) / 100).toLocaleString("ru")} ₽</p>
+                  </div>
+                )}
+                <Button className="w-full h-8 text-xs" onClick={() => toast.success("Настройки зарплаты сохранены")}>
+                  Сохранить
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* System tab */}
           <TabsContent value="system">
             <Card className="bg-card/30 border-border/50">
@@ -458,6 +686,48 @@ export default function Settings() {
             </div>
             <Button className="w-full mt-1" onClick={handlePkgSave} disabled={createPkg.isPending || updatePkg.isPending}>
               {pkgModal.id ? "Сохранить" : "Создать пакет"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* User modal */}
+      <Dialog open={userModal.open} onOpenChange={(o) => setUserModal((u) => ({ ...u, open: o }))}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Добавить пользователя</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Имя</Label>
+              <Input className="h-9 text-sm" value={userModal.name} onChange={(e) => setUserModal((u) => ({ ...u, name: e.target.value }))} placeholder="Иван Иванов" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email</Label>
+              <Input className="h-9 text-sm" type="email" value={userModal.email} onChange={(e) => setUserModal((u) => ({ ...u, email: e.target.value }))} placeholder="ivan@vrpark.co" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Пароль</Label>
+              <Input className="h-9 text-sm" type="password" value={userModal.password} onChange={(e) => setUserModal((u) => ({ ...u, password: e.target.value }))} placeholder="••••••••" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Роль</Label>
+              <Select value={userModal.role} onValueChange={(v) => setUserModal((u) => ({ ...u, role: v }))}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full" onClick={() => {
+              if (!userModal.name.trim() || !userModal.email.trim()) { toast.error("Заполните имя и email"); return; }
+              setUsers(us => [...us, { id: Date.now(), name: userModal.name, email: userModal.email, role: userModal.role, status: "active" }]);
+              toast.success("Пользователь добавлен");
+              setUserModal((u) => ({ ...u, open: false }));
+            }}>
+              Добавить пользователя
             </Button>
           </div>
         </DialogContent>

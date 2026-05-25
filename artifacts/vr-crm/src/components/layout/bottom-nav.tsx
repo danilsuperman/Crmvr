@@ -1,11 +1,12 @@
-import { Home, Users, Calendar, Settings } from "lucide-react";
+import { BookOpen, Users, Monitor, BarChart3, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", icon: Home, label: "Главная" },
+  { href: "/", icon: BookOpen, label: "Брони" },
+  { href: "/control", icon: Monitor, label: "Управление" },
   { href: "/clients", icon: Users, label: "Клиенты" },
-  { href: "/events", icon: Calendar, label: "События" },
+  { href: "/analytics", icon: BarChart3, label: "Аналитика" },
   { href: "/settings", icon: Settings, label: "Настройки" },
 ];
 

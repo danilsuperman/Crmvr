@@ -1,11 +1,15 @@
-import { Home, Users, Calendar, Settings, User } from "lucide-react";
+import { BookOpen, Users, Calendar, Settings, User, Cpu, Monitor, LayoutTemplate, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", icon: Home, label: "Главная" },
+  { href: "/", icon: BookOpen, label: "Брони" },
+  { href: "/control", icon: Monitor, label: "Центр управления" },
+  { href: "/devices", icon: Cpu, label: "Устройства" },
   { href: "/clients", icon: Users, label: "Клиенты" },
   { href: "/events", icon: Calendar, label: "Мероприятия" },
+  { href: "/analytics", icon: BarChart3, label: "Аналитика" },
+  { href: "/registration", icon: LayoutTemplate, label: "Конструктор" },
   { href: "/settings", icon: Settings, label: "Настройки" },
 ];
 
@@ -23,7 +27,7 @@ export function Sidebar() {
         </span>
       </div>
 
-      <nav className="flex-1 py-6 flex flex-col gap-2 px-3">
+      <nav className="flex-1 py-4 flex flex-col gap-1 px-3 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           const Icon = item.icon;
@@ -32,15 +36,15 @@ export function Sidebar() {
             <Link key={item.href} href={item.href} className="block">
               <div
                 className={cn(
-                  "flex items-center justify-center md:justify-start h-10 md:px-3 rounded-md transition-colors cursor-pointer group hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  "flex items-center justify-center md:justify-start h-9 md:px-3 rounded-md transition-colors cursor-pointer group hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   isActive
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/70"
                 )}
                 data-testid={`nav-${item.label.toLowerCase()}`}
               >
-                <Icon className={cn("w-5 h-5", isActive ? "text-primary" : "")} />
-                <span className="hidden md:block ml-3 font-medium text-sm">
+                <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-primary" : "")} />
+                <span className="hidden md:block ml-3 font-medium text-sm truncate">
                   {item.label}
                 </span>
                 {isActive && (
