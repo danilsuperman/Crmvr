@@ -548,6 +548,33 @@ export default function Registration() {
   const [questions, setQuestions] = useLocalStorage("vrpark_auto_questions", DEFAULT_QUESTIONS);
   const [warnings, setWarnings] = useLocalStorage("vrpark_smart_warnings", DEFAULT_WARNINGS);
 
+  // Settings zones sync for constructor
+  const DEFAULT_SETTINGS_ZONES_DATA = [
+    { id: 1, name: "Arena A", color: "#6366f1", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+    { id: 2, name: "Arena B", color: "#8b5cf6", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+    { id: 3, name: "VR Solo", color: "#ec4899", capacity: 1, openTime: "10:00", closeTime: "22:00" },
+    { id: 4, name: "Racing Zone", color: "#f59e0b", capacity: 2, openTime: "12:00", closeTime: "22:00" },
+    { id: 5, name: "PS5", color: "#3b82f6", capacity: 2, openTime: "10:00", closeTime: "23:00" },
+    { id: 6, name: "Motion", color: "#10b981", capacity: 1, openTime: "11:00", closeTime: "21:00" },
+  ];
+  const [settingsZones, setSettingsZones] = useLocalStorage<SettingsZone[]>("vrpark_zones", DEFAULT_SETTINGS_ZONES_DATA);
+  const [constructorZoneMeta, setConstructorZoneMeta] = useLocalStorage<Record<string, { description: string; ageLimit: number; enabled: boolean }>>("vrpark_zone_constructor_meta", {});
+  const [addZoneOpen, setAddZoneOpen] = useState(false);
+  const [newZoneForm, setNewZoneForm] = useState({ name: "", color: "#6366f1", capacity: 2 });
+
+  const getConstructorMeta = (zoneId: number) =>
+    constructorZoneMeta[String(zoneId)] ?? { description: "", ageLimit: 7, enabled: true };
+  const updateConstructorMeta = (zoneId: number, updates: Partial<{ description: string; ageLimit: number; enabled: boolean }>) =>
+    setConstructorZoneMeta(prev => ({ ...prev, [String(zoneId)]: { ...getConstructorMeta(zoneId), ...updates } }));
+  const handleAddNewZone = () => {
+    if (!newZoneForm.name.trim()) return;
+    const newId = Math.max(0, ...settingsZones.map(z => z.id)) + 1;
+    setSettingsZones(zs => [...zs, { id: newId, name: newZoneForm.name.trim(), color: newZoneForm.color, capacity: newZoneForm.capacity, openTime: "10:00", closeTime: "22:00" }]);
+    setNewZoneForm({ name: "", color: "#6366f1", capacity: 2 });
+    setAddZoneOpen(false);
+    toast.success("Зона добавлена");
+  };
+
   // Media state
   const [zoneMedia, setZoneMedia] = useLocalStorage<Record<string, ZoneMedia>>("vrpark_zone_media", {});
   const [gameMedia, setGameMedia] = useLocalStorage<Record<string, GameMedia>>("vrpark_game_media", {});
@@ -788,11 +815,11 @@ export default function Registration() {
                             </div>
                             {detail.title && <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">"{detail.title}"</p>}
                           </div>
-                          <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleTogglePublish(page.id)}>
+                          <div className="flex gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title={page.status === "published" ? "Снять с публикации" : "Опубликовать"} onClick={() => handleTogglePublish(page.id)}>
                               {page.status === "published" ? <Eye className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeletePage(page.id)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Удалить страницу" onClick={() => handleDeletePage(page.id)}>
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
@@ -809,17 +836,26 @@ export default function Registration() {
 
         {/* ── ZONES TAB ──────────────────────────────────────────────────────── */}
         <TabsContent value="zones" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
-          <SectionHeader title="Зоны VR-парка" desc="Настройте каждую зону: описание, фотографии, видео. Клиент увидит это при выборе." />
+          <SectionHeader
+            title="Зоны VR-парка"
+            desc="Зоны синхронизированы с Настройками. Добавьте медиа и описание для каждой зоны — клиенты увидят это при выборе."
+            action={
+              <Button size="sm" className="h-8 gap-1.5 text-xs shrink-0" onClick={() => setAddZoneOpen(true)}>
+                <Plus className="w-3.5 h-3.5" /> Новая зона
+              </Button>
+            }
+          />
           <div className="space-y-3">
-            {zones.map(zone => {
-              const edit = getZoneEdit(zone);
-              const media = getZoneMedia(zone.id);
-              const isExpanded = expandedZone === zone.id;
+            {settingsZones.map(zone => {
+              const meta = getConstructorMeta(zone.id);
+              const zoneKey = String(zone.id);
+              const media = getZoneMedia(zoneKey);
+              const isExpanded = expandedZone === zoneKey;
               return (
-                <Card key={zone.id} className={cn("border-border/50 transition-all", zone.enabled ? "bg-card/30" : "bg-muted/10 opacity-70")}>
+                <Card key={zone.id} className={cn("border-border/50 transition-all", meta.enabled ? "bg-card/30" : "bg-muted/10 opacity-70")}>
                   <div
                     className="flex items-center gap-3 px-4 py-3 cursor-pointer"
-                    onClick={() => setExpandedZone(isExpanded ? null : zone.id)}
+                    onClick={() => setExpandedZone(isExpanded ? null : zoneKey)}
                   >
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: zone.color }} />
                     {media.photos[0] ? (
@@ -831,11 +867,17 @@ export default function Registration() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{zone.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{edit.description}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {meta.description || `Вместимость: ${zone.capacity} · ${zone.openTime}–${zone.closeTime}`}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {media.photos.length > 0 && <span className="text-[10px] text-indigo-400">{media.photos.length} фото</span>}
-                      <Switch checked={zone.enabled} onCheckedChange={() => toggleZone(zone.id)} onClick={e => e.stopPropagation()} />
+                      <Switch
+                        checked={meta.enabled}
+                        onCheckedChange={v => updateConstructorMeta(zone.id, { enabled: v })}
+                        onClick={e => e.stopPropagation()}
+                      />
                       {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                     </div>
                   </div>
@@ -844,29 +886,40 @@ export default function Registration() {
                     <div className="px-4 pb-4 space-y-4 border-t border-border/30 pt-4">
                       <div className="grid grid-cols-3 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-xs">Описание</Label>
-                          <Input className="h-8 text-xs" value={edit.description} onChange={e => updateZoneEdit(zone.id, "description", e.target.value)} />
+                          <Label className="text-xs">Описание (виджет)</Label>
+                          <Input
+                            className="h-8 text-xs"
+                            value={meta.description}
+                            placeholder="Краткое описание для клиента"
+                            onChange={e => updateConstructorMeta(zone.id, { description: e.target.value })}
+                          />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Вместимость</Label>
-                          <Input className="h-8 text-xs" type="number" min="1" value={edit.capacity} onChange={e => updateZoneEdit(zone.id, "capacity", Number(e.target.value))} />
+                          <Input className="h-8 text-xs" type="number" min="1" value={zone.capacity} readOnly />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Возраст от</Label>
-                          <Input className="h-8 text-xs" type="number" min="0" value={edit.ageLimit} onChange={e => updateZoneEdit(zone.id, "ageLimit", Number(e.target.value))} />
+                          <Input
+                            className="h-8 text-xs"
+                            type="number"
+                            min="0"
+                            value={meta.ageLimit}
+                            onChange={e => updateConstructorMeta(zone.id, { ageLimit: Number(e.target.value) })}
+                          />
                         </div>
                       </div>
 
                       <RichEditor
                         blocks={media.descBlocks}
-                        onChange={blocks => setZoneMed(zone.id, m => ({ ...m, descBlocks: blocks }))}
+                        onChange={blocks => setZoneMed(zoneKey, m => ({ ...m, descBlocks: blocks }))}
                         label="Подробное описание зоны"
                       />
 
                       <ImageUpload
                         images={media.photos}
-                        onAdd={photo => setZoneMed(zone.id, m => ({ ...m, photos: [...m.photos, photo] }))}
-                        onRemove={idx => setZoneMed(zone.id, m => ({ ...m, photos: m.photos.filter((_, i) => i !== idx) }))}
+                        onAdd={photo => setZoneMed(zoneKey, m => ({ ...m, photos: [...m.photos, photo] }))}
+                        onRemove={idx => setZoneMed(zoneKey, m => ({ ...m, photos: m.photos.filter((_, i) => i !== idx) }))}
                         label="Фотографии зоны"
                       />
 
@@ -876,29 +929,66 @@ export default function Registration() {
                           className="h-8 text-xs"
                           placeholder="https://youtube.com/watch?v=..."
                           value={media.videoUrl}
-                          onChange={e => setZoneMed(zone.id, m => ({ ...m, videoUrl: e.target.value }))}
+                          onChange={e => setZoneMed(zoneKey, m => ({ ...m, videoUrl: e.target.value }))}
                         />
                       </div>
 
-                      <div className="flex gap-2">
-                        {zoneEdits[zone.id] && (
-                          <Button size="sm" className="h-8 text-xs" onClick={() => saveZone(zone.id)}>
-                            Сохранить
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
-                          setZoneMed(zone.id, m => m);
-                          toast.success("Медиа зоны сохранено");
-                        }}>
-                          Сохранить медиа
-                        </Button>
-                      </div>
+                      <Button size="sm" className="h-8 text-xs" onClick={() => toast.success("Медиа зоны сохранено")}>
+                        Сохранить медиа
+                      </Button>
                     </div>
                   )}
                 </Card>
               );
             })}
           </div>
+
+          {/* Add Zone Modal */}
+          <Dialog open={addZoneOpen} onOpenChange={setAddZoneOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Новая зона</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Название <span className="text-destructive">*</span></Label>
+                  <Input
+                    className="h-9 text-sm"
+                    placeholder="Название зоны"
+                    value={newZoneForm.name}
+                    onChange={e => setNewZoneForm(f => ({ ...f, name: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Цвет</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={newZoneForm.color}
+                      onChange={e => setNewZoneForm(f => ({ ...f, color: e.target.value }))}
+                      className="w-9 h-9 rounded cursor-pointer border border-border/50 bg-transparent"
+                    />
+                    <span className="text-xs text-muted-foreground font-mono">{newZoneForm.color}</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Вместимость</Label>
+                  <Input
+                    className="h-9 text-sm"
+                    type="number"
+                    min="1"
+                    value={newZoneForm.capacity}
+                    onChange={e => setNewZoneForm(f => ({ ...f, capacity: Number(e.target.value) }))}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" className="flex-1 h-9 text-sm" onClick={() => setAddZoneOpen(false)}>Отмена</Button>
+                  <Button className="flex-1 h-9 text-sm" onClick={handleAddNewZone} disabled={!newZoneForm.name.trim()}>Добавить</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* ── GAMES TAB ──────────────────────────────────────────────────────── */}

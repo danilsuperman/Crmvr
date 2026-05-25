@@ -5,10 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useLocalStorage } from "@/lib/store";
 import {
   ArrowLeft, ArrowRight, Check, Cpu, Wifi, MapPin, CheckCircle2,
   Star, ChevronRight, Users
 } from "lucide-react";
+
+type SettingsZone = { id: number; name: string; color: string; capacity: number; openTime: string; closeTime: string };
 
 const DEVICE_TYPES = [
   {
@@ -48,29 +51,31 @@ const DEVICE_TYPES = [
   },
 ];
 
-const ZONES = [
-  { id: "none", name: "Без зоны", desc: "Назначить позже", devices: null },
-  { id: "a", name: "Arena A", desc: "8-player battle arena zone", devices: 5 },
-  { id: "b", name: "Arena B", desc: "Secondary arena zone", devices: 4 },
-  { id: "r", name: "Racing Zone", desc: "VR racing simulators", devices: 1 },
-  { id: "s", name: "Solo VR", desc: "Individual headset stations", devices: 4 },
+const DEFAULT_SETTINGS_ZONES: SettingsZone[] = [
+  { id: 1, name: "Arena A", color: "#6366f1", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+  { id: 2, name: "Arena B", color: "#8b5cf6", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+  { id: 3, name: "VR Solo", color: "#ec4899", capacity: 1, openTime: "10:00", closeTime: "22:00" },
+  { id: 4, name: "Racing Zone", color: "#f59e0b", capacity: 2, openTime: "12:00", closeTime: "22:00" },
+  { id: 5, name: "PS5", color: "#3b82f6", capacity: 2, openTime: "10:00", closeTime: "23:00" },
+  { id: 6, name: "Motion", color: "#10b981", capacity: 1, openTime: "11:00", closeTime: "21:00" },
 ];
 
 export default function DeviceAdd() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState(1);
+  const [settingsZones] = useLocalStorage<SettingsZone[]>("vrpark_zones", DEFAULT_SETTINGS_ZONES);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
   const [ipAddress, setIpAddress] = useState("");
-  const [selectedZone, setSelectedZone] = useState("none");
+  const [selectedZone, setSelectedZone] = useState<string>("none");
 
   const canNext1 = !!selectedType;
   const canNext2 = deviceName.trim().length > 0;
   const canNext3 = true;
 
   const selectedTypeDef = DEVICE_TYPES.find(t => t.id === selectedType);
-  const selectedZoneDef = ZONES.find(z => z.id === selectedZone);
+  const selectedZoneName = selectedZone === "none" ? null : selectedZone;
   const finalName = deviceName || (selectedTypeDef?.name ?? "");
 
   return (
@@ -247,31 +252,54 @@ export default function DeviceAdd() {
                   <MapPin className="w-3 h-3" /> Зона размещения
                 </Label>
                 <div className="grid gap-2">
-                  {ZONES.map((zone) => (
+                  {/* No zone option */}
+                  <button
+                    onClick={() => setSelectedZone("none")}
+                    className={cn(
+                      "w-full text-left p-3 rounded-xl border transition-all",
+                      selectedZone === "none" ? "border-primary bg-primary/8" : "border-border/50 bg-card/20 hover:border-primary/30"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+                        selectedZone === "none" ? "border-primary bg-primary" : "border-border/50"
+                      )}>
+                        {selectedZone === "none" && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Без зоны</p>
+                        <p className="text-xs text-muted-foreground">Назначить позже</p>
+                      </div>
+                    </div>
+                  </button>
+                  {/* Zones from settings */}
+                  {settingsZones.map((zone) => (
                     <button
                       key={zone.id}
-                      onClick={() => setSelectedZone(zone.id)}
+                      onClick={() => setSelectedZone(zone.name)}
                       className={cn(
                         "w-full text-left p-3 rounded-xl border transition-all",
-                        selectedZone === zone.id ? "border-primary bg-primary/8" : "border-border/50 bg-card/20 hover:border-primary/30"
+                        selectedZone === zone.name ? "border-primary bg-primary/8" : "border-border/50 bg-card/20 hover:border-primary/30"
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-                          selectedZone === zone.id ? "border-primary bg-primary" : "border-border/50"
+                          selectedZone === zone.name ? "border-primary bg-primary" : "border-border/50"
                         )}>
-                          {selectedZone === zone.id && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                          {selectedZone === zone.name && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{zone.name}</p>
-                          <p className="text-xs text-muted-foreground">{zone.desc}</p>
-                        </div>
-                        {zone.devices !== null && (
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
-                            <Users className="w-3 h-3" /> {zone.devices} устр.
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: zone.color }} />
+                            <p className="text-sm font-medium">{zone.name}</p>
                           </div>
-                        )}
+                          <p className="text-xs text-muted-foreground">Вместимость: {zone.capacity} · {zone.openTime}–{zone.closeTime}</p>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+                          <Users className="w-3 h-3" /> {zone.capacity} мест
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -300,8 +328,8 @@ export default function DeviceAdd() {
                   <h2 className="text-xl font-bold">Устройство зарегистрировано!</h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     <span className="font-medium text-foreground">{finalName}</span> добавлен в систему
-                    {selectedZoneDef && selectedZoneDef.id !== "none" && (
-                      <> · <span className="text-primary">{selectedZoneDef.name}</span></>
+                    {selectedZoneName && (
+                      <> · <span className="text-primary">{selectedZoneName}</span></>
                     )}
                   </p>
                 </div>
