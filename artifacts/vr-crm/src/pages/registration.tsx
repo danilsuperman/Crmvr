@@ -258,7 +258,7 @@ function ImageUpload({
             <img src={src} alt="" className="w-full h-full object-cover" />
             <button
               onClick={() => onRemove(idx)}
-              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
             >
               <X className="w-3 h-3" />
             </button>
