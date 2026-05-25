@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, User, Camera, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, User, Camera, Building2, Lock, CreditCard, Star, Globe, ChevronRight, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +50,23 @@ const ROLE_PERMISSIONS: Record<string, Record<string, boolean>> = {
 };
 
 const ZONE_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#06b6d4"];
+
+const TARIFF_PLANS = [
+  { id: "free", name: "Бесплатный", price: 0, tag: "", maxParks: 1, maxEmployees: 3, color: "border-border/50 bg-card/20" },
+  { id: "basic", name: "Базовый", price: 2990, tag: "", maxParks: 1, maxEmployees: 10, color: "border-blue-500/40 bg-blue-500/5" },
+  { id: "pro", name: "Профессиональный", price: 7990, tag: "Популярный", maxParks: 5, maxEmployees: 50, color: "border-primary/40 bg-primary/5" },
+  { id: "enterprise", name: "Корпоративный", price: 0, tag: "Под запрос", maxParks: 999, maxEmployees: 999, color: "border-violet-500/40 bg-violet-500/5" },
+] as const;
+
+const TARIFF_SECTIONS = [
+  { key: "bookings", label: "Бронирования" },
+  { key: "analytics", label: "Аналитика" },
+  { key: "devices", label: "Устройства" },
+  { key: "clients", label: "Клиенты" },
+  { key: "constructor", label: "Конструктор" },
+  { key: "salary", label: "Зарплата" },
+  { key: "network", label: "Сеть парков" },
+] as const;
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -79,7 +96,9 @@ export default function Settings() {
 
   // Profile state
   const [profile, setProfile] = useLocalStorage("vrpark_profile", {
-    name: "Дмитрий Козлов",
+    surname: "Козлов",
+    firstName: "Дмитрий",
+    patronymic: "Александрович",
     phone: "+7 (999) 123-45-67",
     email: "admin@vrpark.co",
     position: "Владелец",
@@ -87,8 +106,31 @@ export default function Settings() {
     parkName: "VR Park Moscow",
     city: "Москва",
     bio: "",
+    recoveryEmail: "admin@vrpark.co",
   });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwSaving, setPwSaving] = useState(false);
+
+  // Payment state
+  const [payment, setPayment] = useLocalStorage("vrpark_payment", {
+    cardNumber: "",
+    expiry: "",
+    holder: "",
+    autoPayment: false,
+  });
+  const [paymentSaved, setPaymentSaved] = useState(false);
+
+  // Tariff state
+  const [tariff, setTariff] = useLocalStorage("vrpark_tariff", {
+    plan: "pro" as "free" | "basic" | "pro" | "enterprise",
+    maxParks: 5,
+    maxEmployees: 50,
+    sections: { bookings: true, analytics: true, devices: true, clients: true, constructor: true, salary: true, network: false },
+  });
+
+  // Zone constructor meta (for session type → zone distribution)
+  const [settingsConstructorMeta, setSettingsConstructorMeta] = useLocalStorage<Record<string, { description?: string; ageLimit?: number; enabled?: boolean; sessionTypeIds?: number[] }>>("vrpark_zone_constructor_meta", {});
 
   // Role permissions state
   const [rolePermissions, setRolePermissions] = useLocalStorage<Record<string, Record<string, boolean>>>("vrpark_role_permissions", ROLE_PERMISSIONS);
@@ -209,7 +251,7 @@ export default function Settings() {
       </header>
 
       <div className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6">
-        <Tabs defaultValue="zones" className="w-full max-w-4xl">
+        <Tabs defaultValue="profile" className="w-full max-w-4xl">
           <TabsList className="mb-4 bg-muted/30 border border-border/50 h-9 flex-wrap gap-1">
             <TabsTrigger value="profile" className="text-xs">Профиль</TabsTrigger>
             <TabsTrigger value="zones" className="text-xs">Зоны</TabsTrigger>
@@ -223,31 +265,43 @@ export default function Settings() {
 
           {/* Profile tab */}
           <TabsContent value="profile" className="space-y-4">
+
+            {/* Personal info */}
             <Card className="bg-card/30 border-border/50">
               <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm flex items-center gap-2"><User className="w-4 h-4" /> Личный профиль</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2"><User className="w-4 h-4" /> Личные данные</CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="relative shrink-0">
                     <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center text-xl font-bold text-primary border-2 border-primary/20 overflow-hidden">
-                      {profile.avatar ? <img src={profile.avatar} className="w-full h-full object-cover" alt="avatar" /> : profile.name.charAt(0)}
+                      {profile.avatar ? <img src={profile.avatar} className="w-full h-full object-cover" alt="avatar" /> : (profile.firstName || "А").charAt(0)}
                     </div>
                     <button className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:bg-primary/90 transition-colors">
                       <Camera className="w-3 h-3" />
                     </button>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold">{profile.name}</p>
+                    <p className="font-semibold">{[profile.surname, profile.firstName, profile.patronymic].filter(Boolean).join(" ") || "—"}</p>
                     <p className="text-xs text-muted-foreground">{profile.position}</p>
                     <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Фамилия</Label>
+                    <Input className="h-8 text-sm" value={profile.surname} onChange={e => setProfile(p => ({ ...p, surname: e.target.value }))} placeholder="Козлов" />
+                  </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Имя</Label>
-                    <Input className="h-8 text-sm" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
+                    <Input className="h-8 text-sm" value={profile.firstName} onChange={e => setProfile(p => ({ ...p, firstName: e.target.value }))} placeholder="Дмитрий" />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Отчество</Label>
+                    <Input className="h-8 text-sm" value={profile.patronymic} onChange={e => setProfile(p => ({ ...p, patronymic: e.target.value }))} placeholder="Александрович" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Должность</Label>
                     <Input className="h-8 text-sm" value={profile.position} onChange={e => setProfile(p => ({ ...p, position: e.target.value }))} />
@@ -261,8 +315,59 @@ export default function Settings() {
                     <Input className="h-8 text-sm" type="email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
                   </div>
                 </div>
+                <Button className="w-full h-8 text-xs" onClick={() => { setProfileSaved(true); toast.success("Личные данные сохранены"); setTimeout(() => setProfileSaved(false), 2000); }}>
+                  {profileSaved ? "Сохранено!" : "Сохранить данные"}
+                </Button>
               </CardContent>
             </Card>
+
+            {/* Security */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Lock className="w-4 h-4" /> Безопасность</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-4">
+                <div>
+                  <p className="text-xs font-medium mb-3 text-muted-foreground uppercase tracking-wide">Смена пароля</p>
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Текущий пароль</Label>
+                      <Input className="h-8 text-sm" type="password" placeholder="••••••••" value={pwForm.current} onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Новый пароль</Label>
+                        <Input className="h-8 text-sm" type="password" placeholder="••••••••" value={pwForm.next} onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Подтверждение</Label>
+                        <Input className="h-8 text-sm" type="password" placeholder="••••••••" value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} />
+                      </div>
+                    </div>
+                    {pwForm.next && pwForm.confirm && pwForm.next !== pwForm.confirm && (
+                      <p className="text-[11px] text-destructive">Пароли не совпадают</p>
+                    )}
+                    <Button size="sm" className="h-8 text-xs w-full" disabled={!pwForm.current || !pwForm.next || pwForm.next !== pwForm.confirm || pwSaving} onClick={() => { setPwSaving(true); setTimeout(() => { setPwSaving(false); setPwForm({ current: "", next: "", confirm: "" }); toast.success("Пароль успешно изменён"); }, 1000); }}>
+                      {pwSaving ? "Сохранение..." : "Изменить пароль"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="border-t border-border/40 pt-4">
+                  <p className="text-xs font-medium mb-3 text-muted-foreground uppercase tracking-wide">Восстановление пароля</p>
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Email для восстановления</Label>
+                      <Input className="h-8 text-sm" type="email" value={profile.recoveryEmail} onChange={e => setProfile(p => ({ ...p, recoveryEmail: e.target.value }))} />
+                    </div>
+                    <Button size="sm" variant="outline" className="h-8 text-xs w-full" onClick={() => toast.success(`Инструкция отправлена на ${profile.recoveryEmail}`)}>
+                      Отправить ссылку для восстановления
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Park info */}
             <Card className="bg-card/30 border-border/50">
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-sm flex items-center gap-2"><Building2 className="w-4 h-4" /> Данные парка</CardTitle>
@@ -280,17 +385,107 @@ export default function Settings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">О парке</Label>
-                  <textarea
-                    className="w-full text-sm border border-border/50 rounded-lg p-2.5 bg-card/30 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
-                    rows={3}
-                    value={profile.bio}
-                    onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))}
-                    placeholder="Расскажите о вашем VR-парке..."
-                  />
+                  <textarea className="w-full text-sm border border-border/50 rounded-lg p-2.5 bg-card/30 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground" rows={3} value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} placeholder="Расскажите о вашем VR-парке..." />
                 </div>
-                <Button className="w-full h-8 text-xs" onClick={() => { setProfileSaved(true); toast.success("Профиль сохранён"); setTimeout(() => setProfileSaved(false), 2000); }}>
-                  {profileSaved ? "Сохранено!" : "Сохранить профиль"}
+                <Button className="w-full h-8 text-xs" onClick={() => { setProfileSaved(true); toast.success("Данные парка сохранены"); setTimeout(() => setProfileSaved(false), 2000); }}>
+                  {profileSaved ? "Сохранено!" : "Сохранить"}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Payment */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><CreditCard className="w-4 h-4" /> Платёжные данные</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                {payment.cardNumber && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-violet-500/10 border border-primary/20">
+                    <CreditCard className="w-5 h-5 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-mono font-medium">•••• •••• •••• {payment.cardNumber.slice(-4) || "——"}</p>
+                      <p className="text-xs text-muted-foreground">{payment.holder || "—"} · {payment.expiry || "—"}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <Label className="text-xs">Номер карты</Label>
+                    <Input className="h-8 text-sm font-mono" placeholder="0000 0000 0000 0000" maxLength={19} value={payment.cardNumber} onChange={e => setPayment(p => ({ ...p, cardNumber: e.target.value.replace(/\D/g, "").replace(/(\d{4})/g, "$1 ").trim().slice(0, 19) }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Срок действия</Label>
+                    <Input className="h-8 text-sm font-mono" placeholder="MM/YY" maxLength={5} value={payment.expiry} onChange={e => { let v = e.target.value.replace(/\D/g, ""); if (v.length >= 2) v = v.slice(0,2) + "/" + v.slice(2,4); setPayment(p => ({ ...p, expiry: v })); }} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Имя на карте</Label>
+                    <Input className="h-8 text-sm" placeholder="DMITRY KOZLOV" value={payment.holder} onChange={e => setPayment(p => ({ ...p, holder: e.target.value.toUpperCase() }))} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <div>
+                    <p className="text-sm font-medium">Автоплатёж</p>
+                    <p className="text-xs text-muted-foreground">Автоматическое списание при окончании тарифа</p>
+                  </div>
+                  <Switch checked={payment.autoPayment} onCheckedChange={val => setPayment(p => ({ ...p, autoPayment: val }))} />
+                </div>
+                <Button className="w-full h-8 text-xs" onClick={() => { setPaymentSaved(true); toast.success("Платёжные данные сохранены"); setTimeout(() => setPaymentSaved(false), 2000); }}>
+                  {paymentSaved ? "Сохранено!" : "Сохранить платёжные данные"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Tariff */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Star className="w-4 h-4" /> Тариф и лимиты</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {TARIFF_PLANS.map(plan => (
+                    <button key={plan.id} onClick={() => setTariff(t => ({ ...t, plan: plan.id, maxParks: plan.maxParks === 999 ? t.maxParks : plan.maxParks, maxEmployees: plan.maxEmployees === 999 ? t.maxEmployees : plan.maxEmployees }))} className={cn("relative p-3 rounded-xl border text-left transition-all", plan.color, tariff.plan === plan.id ? "ring-2 ring-primary/60" : "hover:opacity-80")}>
+                      {plan.tag && <span className="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">{plan.tag}</span>}
+                      <p className={cn("text-xs font-semibold", tariff.plan === plan.id ? "text-primary" : "")}>{plan.name}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{plan.price === 0 ? (plan.id === "enterprise" ? "По договору" : "Бесплатно") : `${plan.price.toLocaleString("ru")} ₽/мес`}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="border-t border-border/40 pt-4 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Кастомизация лимитов</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Макс. парков</Label>
+                      <div className="flex gap-2 items-center">
+                        <Input className="h-8 text-sm" type="number" min="1" max="100" value={tariff.maxParks} onChange={e => setTariff(t => ({ ...t, maxParks: Number(e.target.value) || 1 }))} />
+                        <span className="text-xs text-muted-foreground shrink-0">шт.</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Макс. сотрудников</Label>
+                      <div className="flex gap-2 items-center">
+                        <Input className="h-8 text-sm" type="number" min="1" max="500" value={tariff.maxEmployees} onChange={e => setTariff(t => ({ ...t, maxEmployees: Number(e.target.value) || 1 }))} />
+                        <span className="text-xs text-muted-foreground shrink-0">чел.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40 pt-4 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Доступные разделы</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {TARIFF_SECTIONS.map(sec => {
+                      const active = tariff.sections[sec.key as keyof typeof tariff.sections] ?? false;
+                      return (
+                        <button key={sec.key} onClick={() => setTariff(t => ({ ...t, sections: { ...t.sections, [sec.key]: !active } }))} className={cn("flex items-center gap-1.5 p-2 rounded-lg border text-xs transition-all text-left", active ? "border-green-500/40 bg-green-500/8 text-green-400" : "border-border/50 bg-card/20 text-muted-foreground/60")}>
+                          <CheckCircle2 className={cn("w-3.5 h-3.5 shrink-0", active ? "text-green-400" : "text-muted-foreground/30")} />
+                          {sec.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <Button className="w-full h-8 text-xs" onClick={() => toast.success("Тариф сохранён")}>Сохранить тариф</Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -352,7 +547,7 @@ export default function Settings() {
               </div>
               <Button
                 size="sm" className="h-8 gap-1.5 text-xs"
-                onClick={() => setSessionModal({ open: true, name: "", color: "#8b5cf6", minDuration: "30" })}
+                onClick={() => setSessionModal({ open: true, name: "", color: "#8b5cf6", minDuration: "30", price: "" })}
               >
                 <Plus className="w-3.5 h-3.5" /> Добавить тип
               </Button>
@@ -392,6 +587,66 @@ export default function Settings() {
                 </Card>
               ))}
             </div>
+
+            {/* Zone distribution matrix */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Layers className="w-4 h-4" /> Распределение по зонам</CardTitle>
+                <CardDescription className="text-xs">Выберите, в каких зонах доступен каждый тип сеанса. Виджет бронирования автоматически покажет только подходящие варианты.</CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                {sessionTypes.length === 0 || zones.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Добавьте зоны и типы сеансов для настройки распределения.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {sessionTypes.map(st => {
+                      const assignedZoneIds = zones.filter(z => (settingsConstructorMeta[String(z.id)]?.sessionTypeIds ?? []).includes(st.id)).map(z => z.id);
+                      return (
+                        <div key={st.id} className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
+                            <span className="text-xs font-medium">{st.name}</span>
+                            {assignedZoneIds.length === 0 && <span className="text-[10px] text-muted-foreground/60 ml-auto">все зоны</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {zones.map(zone => {
+                              const assigned = assignedZoneIds.includes(zone.id);
+                              return (
+                                <button
+                                  key={zone.id}
+                                  onClick={() => {
+                                    const zoneKey = String(zone.id);
+                                    const current = settingsConstructorMeta[zoneKey]?.sessionTypeIds ?? [];
+                                    const updated = assigned
+                                      ? current.filter(id => id !== st.id)
+                                      : [...current, st.id];
+                                    setSettingsConstructorMeta(prev => ({
+                                      ...prev,
+                                      [zoneKey]: { ...(prev[zoneKey] ?? {}), sessionTypeIds: updated },
+                                    }));
+                                    toast.success(assigned ? `Убрано из ${zone.name}` : `Добавлено в ${zone.name}`);
+                                  }}
+                                  className={cn(
+                                    "flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-medium transition-all",
+                                    assigned
+                                      ? "border-primary/50 bg-primary/10 text-primary"
+                                      : "border-border/50 bg-card/20 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                                  )}
+                                >
+                                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: zone.color }} />
+                                  {zone.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <p className="text-[10px] text-muted-foreground pt-1">Если зона не выбрана — тип доступен во всех зонах.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Packages tab */}
