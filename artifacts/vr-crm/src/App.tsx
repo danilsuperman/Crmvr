@@ -17,6 +17,7 @@ import DeviceAdd from "@/pages/device-add";
 import Analytics from "@/pages/analytics";
 import Registration from "@/pages/registration";
 import Landing from "@/pages/landing";
+import Network from "@/pages/network";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/analytics" component={Analytics} />
         <Route path="/registration" component={Registration} />
         <Route path="/settings" component={Settings} />
+        <Route path="/network" component={Network} />
         <Route path="/profile" component={Profile} />
         <Route component={NotFound} />
       </Switch>

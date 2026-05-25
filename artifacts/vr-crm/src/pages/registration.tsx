@@ -30,7 +30,8 @@ type DescBlock = { id: string; type: "h1" | "h2" | "p" | "bullet"; text: string 
 type ZoneMedia = { photos: string[]; videoUrl: string; descBlocks: DescBlock[] };
 type GameMedia = { coverImage?: string; descBlocks: DescBlock[] };
 type PkgMedia = { photos: string[]; videoUrl: string; descBlocks: DescBlock[]; scenario: string };
-type PageDetail = { title: string; subtitle: string; descBlocks: DescBlock[]; photos: string[]; videoUrl: string };
+type PageDetail = { title: string; subtitle: string; descBlocks: DescBlock[]; photos: string[]; videoUrl: string; zoneIds?: number[] };
+type SettingsZone = { id: number; name: string; color: string; capacity: number; openTime: string; closeTime: string };
 
 // ─── DATA CONSTANTS ────────────────────────────────────────────────────────────
 
@@ -335,6 +336,7 @@ function PageEditor({
   const [tab, setTab] = useState("content");
   const [detail, setDetail] = useState<PageDetail>(pageDetail);
   const [links, setLinks] = useLocalStorage<Array<{ id: string; label: string; url: string }>>(`vrpark_page_links_${page.id}`, []);
+  const [settingsZones] = useLocalStorage<SettingsZone[]>("vrpark_zones", []);
   const [newLink, setNewLink] = useState({ label: "", url: "" });
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -417,6 +419,32 @@ function PageEditor({
               </div>
             )}
           </div>
+          {settingsZones.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-border/50">
+              <Label className="text-xs font-semibold flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" />Зоны на этой странице</Label>
+              <p className="text-[10px] text-muted-foreground">Выберите зоны, которые посетители увидят при бронировании</p>
+              <div className="space-y-1.5">
+                {settingsZones.map(zone => (
+                  <div key={zone.id} className="flex items-center justify-between p-2.5 rounded-lg bg-card/30 border border-border/50">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: zone.color }} />
+                      <span className="text-xs font-medium truncate">{zone.name}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">до {zone.capacity} чел.</span>
+                    </div>
+                    <Switch
+                      checked={(detail.zoneIds ?? []).includes(zone.id)}
+                      onCheckedChange={v => setDetail(d => ({
+                        ...d,
+                        zoneIds: v
+                          ? [...(d.zoneIds ?? []), zone.id]
+                          : (d.zoneIds ?? []).filter(id => id !== zone.id),
+                      }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <Button className="w-full" onClick={handleSave}>Сохранить контент</Button>
         </div>
       )}
@@ -674,10 +702,10 @@ export default function Registration() {
   // ── FULL PAGE ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="shrink-0 flex items-center justify-between px-4 md:px-6 py-3 border-b border-border/50 bg-card/30">
         <div>
-          <h1 className="text-xl font-bold">Конструктор онлайн-записи</h1>
+          <h1 className="text-lg font-bold">Конструктор онлайн-записи</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Настройте страницы, зоны, игры, пакеты и виджет</p>
         </div>
         <Button size="sm" className="gap-1.5 text-xs" onClick={() => setShowWidget(true)}>
@@ -685,8 +713,9 @@ export default function Registration() {
         </Button>
       </div>
 
-      <Tabs defaultValue="pages">
-        <TabsList className="flex-wrap h-auto gap-1">
+      <Tabs defaultValue="pages" className="flex flex-col flex-1 overflow-hidden min-h-0">
+        <div className="shrink-0 px-4 md:px-6 pt-3 border-b border-border/50">
+          <TabsList className="h-auto gap-1 w-full flex flex-nowrap overflow-x-auto justify-start bg-transparent p-0 pb-px">
           {[
             { value: "pages", label: "Страницы" },
             { value: "zones", label: "Зоны" },
@@ -696,12 +725,13 @@ export default function Registration() {
             { value: "widget", label: "Виджет" },
             { value: "analytics", label: "Аналитика" },
           ].map(t => (
-            <TabsTrigger key={t.value} value={t.value} className="text-xs">{t.label}</TabsTrigger>
+            <TabsTrigger key={t.value} value={t.value} className="text-xs shrink-0">{t.label}</TabsTrigger>
           ))}
         </TabsList>
+        </div>
 
         {/* ── PAGES TAB ──────────────────────────────────────────────────────── */}
-        <TabsContent value="pages" className="space-y-4 mt-4">
+        <TabsContent value="pages" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
           {selectedPageId ? (() => {
             const page = pages.find(p => p.id === selectedPageId);
             if (!page) return null;
@@ -778,7 +808,7 @@ export default function Registration() {
         </TabsContent>
 
         {/* ── ZONES TAB ──────────────────────────────────────────────────────── */}
-        <TabsContent value="zones" className="space-y-4 mt-4">
+        <TabsContent value="zones" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
           <SectionHeader title="Зоны VR-парка" desc="Настройте каждую зону: описание, фотографии, видео. Клиент увидит это при выборе." />
           <div className="space-y-3">
             {zones.map(zone => {
@@ -872,7 +902,7 @@ export default function Registration() {
         </TabsContent>
 
         {/* ── GAMES TAB ──────────────────────────────────────────────────────── */}
-        <TabsContent value="games" className="space-y-4 mt-4">
+        <TabsContent value="games" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
           <SectionHeader
             title="Игры"
             desc="Добавьте обложки и описания для каждой игры."
@@ -956,7 +986,7 @@ export default function Registration() {
         </TabsContent>
 
         {/* ── PACKAGES TAB ───────────────────────────────────────────────────── */}
-        <TabsContent value="packages" className="space-y-4 mt-4">
+        <TabsContent value="packages" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
           <SectionHeader
             title="Пакеты мероприятий"
             desc="Добавьте фотографии, видео, описание сценария. Клиент увидит полную карточку пакета."
@@ -1047,7 +1077,7 @@ export default function Registration() {
         </TabsContent>
 
         {/* ── AUTO TAB ───────────────────────────────────────────────────────── */}
-        <TabsContent value="auto" className="space-y-4 mt-4">
+        <TabsContent value="auto" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
           <SectionHeader title="Авто-подбор" desc="Настройте алгоритм и вопросы для автоматического подбора." />
           <Card className="bg-card/30 border-border/50">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -1115,7 +1145,7 @@ export default function Registration() {
         </TabsContent>
 
         {/* ── WIDGET TAB ─────────────────────────────────────────────────────── */}
-        <TabsContent value="widget" className="space-y-4 mt-4">
+        <TabsContent value="widget" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
           <SectionHeader title="Виджет бронирования" desc="Встройте виджет на сайт или используйте прямую ссылку." />
           <Card className="bg-card/30 border-border/50">
             <CardContent className="p-4 space-y-4">
@@ -1147,7 +1177,7 @@ export default function Registration() {
         </TabsContent>
 
         {/* ── ANALYTICS TAB ─────────────────────────────────────────────────── */}
-        <TabsContent value="analytics" className="space-y-4 mt-4">
+        <TabsContent value="analytics" className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6 space-y-4 mt-0">
           <SectionHeader title="Аналитика виджета" desc="Просмотры, конверсия и популярные игры." />
           <div className="grid gap-3 sm:grid-cols-3">
             {[
