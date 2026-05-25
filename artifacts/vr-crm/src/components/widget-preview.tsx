@@ -452,9 +452,37 @@ function ZoneDetail({
 
 // ─── MANUAL FLOW ──────────────────────────────────────────────────────────────
 
+type SettingsZoneRaw = { id: number; name: string; color: string; capacity: number; openTime: string; closeTime: string };
+const DEFAULT_SETTINGS_ZONES_WIDGET: SettingsZoneRaw[] = [
+  { id: 1, name: "Arena A", color: "#6366f1", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+  { id: 2, name: "Arena B", color: "#8b5cf6", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+  { id: 3, name: "VR Solo", color: "#ec4899", capacity: 1, openTime: "10:00", closeTime: "22:00" },
+  { id: 4, name: "Racing Zone", color: "#f59e0b", capacity: 2, openTime: "12:00", closeTime: "22:00" },
+  { id: 5, name: "PS5 Zone", color: "#3b82f6", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+  { id: 6, name: "Motion", color: "#10b981", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+];
+
 function ManualFlow({ onBack }: { onBack: () => void }) {
-  const [storedZones] = useLocalStorage("vrpark_widget_zones", DEFAULT_ZONES);
+  const [rawSettingsZones] = useLocalStorage<SettingsZoneRaw[]>("vrpark_zones", DEFAULT_SETTINGS_ZONES_WIDGET);
+  const [constructorMeta] = useLocalStorage<Record<string, { description: string; ageLimit: number; enabled: boolean }>>("vrpark_zone_constructor_meta", {});
   const [storedZoneMedia] = useLocalStorage<Record<string, ZoneMedia>>("vrpark_zone_media", {});
+
+  // Merge settings zones with constructor meta into the shape the widget expects
+  const storedZones = rawSettingsZones.map(z => {
+    const key = String(z.id);
+    const meta = constructorMeta[key] ?? { description: "", ageLimit: 7, enabled: true };
+    return {
+      id: key,
+      name: z.name,
+      color: z.color,
+      capacity: z.capacity,
+      description: meta.description || `${z.name} — VR-зона вашего парка`,
+      ageLimit: meta.ageLimit ?? 7,
+      enabled: meta.enabled ?? true,
+      priceFrom: 1200,
+    };
+  });
+
   const [step, setStep] = useState<"zones" | "zone-detail" | "datetime" | "contact" | "done">("zones");
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
