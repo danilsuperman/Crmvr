@@ -3,10 +3,14 @@ import { useListClients } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Plus, Phone, Calendar, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useLocalStorage } from "@/lib/store";
+import { toast } from "sonner";
 
 const MOCK_CLIENTS_DATA = [
   { id: 1, name: "Андрей Смирнов", phone: "+7 916 123-45-67", visitCount: 12, lastVisit: "2026-05-24T10:00:00Z" },
@@ -22,21 +26,40 @@ const MOCK_CLIENTS_DATA = [
 export default function Clients() {
   const [search, setSearch] = useState("");
   const [, navigate] = useLocation();
-  const { data: rawClients = [] } = useListClients({ search });
+  useListClients({ search });
   const isLoading = false;
-  const clients = rawClients.length > 0
-    ? rawClients
-    : MOCK_CLIENTS_DATA.filter(c =>
-        !search ||
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.phone.includes(search)
-      );
+
+  const [allClients, setAllClients] = useLocalStorage<typeof MOCK_CLIENTS_DATA>("vrpark_clients", MOCK_CLIENTS_DATA);
+  const clients = allClients.filter(
+    (c) =>
+      !search ||
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.phone.includes(search)
+  );
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [clientForm, setClientForm] = useState({ name: "", phone: "" });
+
+  const handleAddClient = () => {
+    if (!clientForm.name.trim()) { toast.error("Введите имя клиента"); return; }
+    const newClient = {
+      id: Date.now(),
+      name: clientForm.name.trim(),
+      phone: clientForm.phone.trim(),
+      visitCount: 0,
+      lastVisit: new Date().toISOString(),
+    };
+    setAllClients((prev) => [newClient, ...prev]);
+    toast.success(`Клиент "${clientForm.name}" добавлен`);
+    setClientForm({ name: "", phone: "" });
+    setAddOpen(false);
+  };
 
   return (
     <div className="flex flex-col h-full z-10">
       <header className="h-14 border-b border-border/50 flex items-center px-4 md:px-6 justify-between bg-card/50 backdrop-blur-sm shrink-0">
         <h1 className="text-lg font-bold font-mono">Клиенты</h1>
-        <Button size="sm" className="h-8 gap-1.5 text-xs">
+        <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setAddOpen(true)}>
           <Plus className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Добавить клиента</span>
           <span className="sm:hidden">Добавить</span>
@@ -137,6 +160,38 @@ export default function Clients() {
           </>
         )}
       </div>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Новый клиент</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Имя</Label>
+              <Input
+                className="h-8 text-sm"
+                placeholder="Иван Иванов"
+                value={clientForm.name}
+                onChange={(e) => setClientForm((f) => ({ ...f, name: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && handleAddClient()}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Телефон</Label>
+              <Input
+                className="h-8 text-sm"
+                placeholder="+7 900 000-00-00"
+                value={clientForm.phone}
+                onChange={(e) => setClientForm((f) => ({ ...f, phone: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && handleAddClient()}
+              />
+            </div>
+            <Button onClick={handleAddClient}>Добавить клиента</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

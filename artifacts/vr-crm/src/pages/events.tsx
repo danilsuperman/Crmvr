@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useListEvents, useCreateEvent, getListEventsQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocalStorage } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,13 +37,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function Events() {
   const [, navigate] = useLocation();
-  const queryClient = useQueryClient();
-  const { data: rawEvents = [] } = useListEvents();
+  useListEvents();
+  useCreateEvent({});
+  useQueryClient();
+
+  const [storedEvents, setStoredEvents] = useLocalStorage<typeof MOCK_EVENTS_DATA>("vrpark_events", MOCK_EVENTS_DATA);
   const isLoading = false;
-  const events = rawEvents.length > 0 ? rawEvents : MOCK_EVENTS_DATA;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [localEvents, setLocalEvents] = useState<typeof MOCK_EVENTS_DATA>([]);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -54,55 +56,29 @@ export default function Events() {
     responsible: "",
   });
 
-  const createEvent = useCreateEvent({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() });
-        toast.success("Мероприятие создано");
-        setIsModalOpen(false);
-      },
-      onError: () => toast.error("Не удалось создать мероприятие"),
-    },
-  });
-
   const handleSubmit = () => {
     if (!form.title.trim() || !form.startTime || !form.endTime) {
       toast.error("Заполните обязательные поля");
       return;
     }
-    if (isError) {
-      const newEvent = {
-        id: Date.now(),
-        title: form.title,
-        description: form.description,
-        startTime: new Date(form.startTime).toISOString(),
-        endTime: new Date(form.endTime).toISOString(),
-        guestsCount: Number(form.guestsCount) || 10,
-        status: form.status,
-        zones: form.zones,
-        responsible: form.responsible,
-      };
-      setLocalEvents(prev => [newEvent, ...prev]);
-      toast.success("Мероприятие создано");
-      setIsModalOpen(false);
-      setForm({ title: "", description: "", startTime: "", endTime: "", guestsCount: "10", status: "planned", zones: "", responsible: "" });
-      return;
-    }
-    createEvent.mutate({
-      data: {
-        title: form.title,
-        description: form.description || undefined,
-        startTime: new Date(form.startTime).toISOString(),
-        endTime: new Date(form.endTime).toISOString(),
-        guestsCount: Number(form.guestsCount) || 10,
-        status: form.status as "planned" | "active" | "completed" | "cancelled",
-        zones: form.zones || undefined,
-        responsible: form.responsible || undefined,
-      },
-    });
+    const newEvent = {
+      id: Date.now(),
+      title: form.title,
+      description: form.description,
+      startTime: new Date(form.startTime).toISOString(),
+      endTime: new Date(form.endTime).toISOString(),
+      guestsCount: Number(form.guestsCount) || 10,
+      status: form.status,
+      zones: form.zones,
+      responsible: form.responsible,
+    };
+    setStoredEvents((prev) => [newEvent, ...prev]);
+    toast.success("Мероприятие создано");
+    setIsModalOpen(false);
+    setForm({ title: "", description: "", startTime: "", endTime: "", guestsCount: "10", status: "planned", zones: "", responsible: "" });
   };
 
-  const allEvents = [...localEvents, ...events];
+  const allEvents = storedEvents;
 
   return (
     <div className="flex flex-col h-full z-10">

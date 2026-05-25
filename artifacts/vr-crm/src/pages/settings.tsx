@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocalStorage } from "@/lib/store";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useListZones,
@@ -72,9 +73,9 @@ export default function Settings() {
     { id: 3, name: "Full Park", description: "Весь парк в ваше распоряжение", maxGuests: 50, zoneIds: [1, 2, 3, 4, 5, 6] },
   ];
 
-  const { data: rawZones = [] } = useListZones();
+  useListZones();
   const isLoadingZones = false;
-  const zones = rawZones.length > 0 ? rawZones : MOCK_ZONES_DATA;
+  const [zones, setZones] = useLocalStorage("vrpark_zones", MOCK_ZONES_DATA);
 
   // Users state
   const [users, setUsers] = useState(MOCK_USERS);
@@ -95,13 +96,13 @@ export default function Settings() {
   const [salaryPercent, setSalaryPercent] = useState("5");
   const [salaryMixedFixed, setSalaryMixedFixed] = useState("1500");
   const [salaryMixedPercent, setSalaryMixedPercent] = useState("3");
-  const { data: rawSessionTypes = [] } = useListSessionTypes();
+  useListSessionTypes();
   const isLoadingSessionTypes = false;
-  const sessionTypes = rawSessionTypes.length > 0 ? rawSessionTypes : MOCK_SESSION_TYPES_DATA;
+  const [sessionTypes, setSessionTypes] = useLocalStorage("vrpark_session_types", MOCK_SESSION_TYPES_DATA);
 
-  const { data: rawPackages = [] } = useListPackages();
+  useListPackages();
   const isLoadingPackages = false;
-  const packages = rawPackages.length > 0 ? rawPackages : MOCK_PACKAGES_DATA;
+  const [packages, setPackages] = useLocalStorage("vrpark_packages", MOCK_PACKAGES_DATA);
 
   // Zone modal
   const [zoneModal, setZoneModal] = useState<{
@@ -138,28 +139,41 @@ export default function Settings() {
 
   const handleZoneSave = () => {
     if (!zoneModal.name.trim()) { toast.error("Введите название зоны"); return; }
-    const data = { name: zoneModal.name, color: zoneModal.color, capacity: Number(zoneModal.capacity) || 10, openTime: zoneModal.openTime, closeTime: zoneModal.closeTime };
-    if (zoneModal.id) updateZone.mutate({ id: zoneModal.id, data });
-    else createZone.mutate({ data });
+    const entry = { name: zoneModal.name, color: zoneModal.color, capacity: Number(zoneModal.capacity) || 10, openTime: zoneModal.openTime, closeTime: zoneModal.closeTime };
+    if (zoneModal.id) {
+      setZones((zs) => zs.map((z) => z.id === zoneModal.id ? { ...z, ...entry } : z));
+      toast.success("Зона обновлена");
+    } else {
+      setZones((zs) => [...zs, { id: Date.now(), ...entry }]);
+      toast.success("Зона добавлена");
+    }
+    setZoneModal((z) => ({ ...z, open: false }));
   };
 
   const handleSessionSave = () => {
     if (!sessionModal.name.trim()) { toast.error("Введите название типа"); return; }
-    const data = { name: sessionModal.name, color: sessionModal.color, minDuration: Number(sessionModal.minDuration) || 30 };
-    if (sessionModal.id) updateSession.mutate({ id: sessionModal.id, data });
-    else createSession.mutate({ data });
+    const entry = { name: sessionModal.name, color: sessionModal.color, minDuration: Number(sessionModal.minDuration) || 30 };
+    if (sessionModal.id) {
+      setSessionTypes((ss) => ss.map((s) => s.id === sessionModal.id ? { ...s, ...entry } : s));
+      toast.success("Тип обновлён");
+    } else {
+      setSessionTypes((ss) => [...ss, { id: Date.now(), ...entry }]);
+      toast.success("Тип добавлен");
+    }
+    setSessionModal((s) => ({ ...s, open: false }));
   };
 
   const handlePkgSave = () => {
     if (!pkgModal.name.trim()) { toast.error("Введите название пакета"); return; }
-    const data = {
-      name: pkgModal.name,
-      description: pkgModal.description || undefined,
-      zoneIds: pkgModal.zoneIds,
-      maxGuests: Number(pkgModal.maxGuests) || 10,
-    };
-    if (pkgModal.id) updatePkg.mutate({ id: pkgModal.id, data });
-    else createPkg.mutate({ data });
+    const entry = { name: pkgModal.name, description: pkgModal.description || "", zoneIds: pkgModal.zoneIds, maxGuests: Number(pkgModal.maxGuests) || 10 };
+    if (pkgModal.id) {
+      setPackages((ps) => ps.map((p) => p.id === pkgModal.id ? { ...p, ...entry } : p));
+      toast.success("Пакет обновлён");
+    } else {
+      setPackages((ps) => [...ps, { id: Date.now(), ...entry }]);
+      toast.success("Пакет добавлен");
+    }
+    setPkgModal((p) => ({ ...p, open: false }));
   };
 
   const toggleZoneInPkg = (zoneId: number) => {
@@ -226,7 +240,7 @@ export default function Settings() {
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => deleteZone.mutate({ id: zone.id })}>
+                          onClick={() => { if (confirm("Удалить зону?")) { setZones((zs) => zs.filter((z) => z.id !== zone.id)); toast.success("Зона удалена"); } }}>
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -276,7 +290,7 @@ export default function Settings() {
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => deleteSession.mutate({ id: st.id })}>
+                          onClick={() => { if (confirm("Удалить тип сеанса?")) { setSessionTypes((ss) => ss.filter((s) => s.id !== st.id)); toast.success("Тип удалён"); } }}>
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -363,7 +377,7 @@ export default function Settings() {
                           </Button>
                           <Button
                             variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => deletePkg.mutate({ id: pkg.id })}
+                            onClick={() => { if (confirm("Удалить пакет?")) { setPackages((ps) => ps.filter((p) => p.id !== pkg.id)); toast.success("Пакет удалён"); } }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -608,7 +622,7 @@ export default function Settings() {
                 <Input className="h-9 text-xs" type="time" value={zoneModal.closeTime} onChange={(e) => setZoneModal((z) => ({ ...z, closeTime: e.target.value }))} />
               </div>
             </div>
-            <Button className="w-full" onClick={handleZoneSave} disabled={createZone.isPending || updateZone.isPending}>
+            <Button className="w-full" onClick={handleZoneSave}>
               {zoneModal.id ? "Сохранить" : "Добавить зону"}
             </Button>
           </div>
@@ -638,7 +652,7 @@ export default function Settings() {
               <Label className="text-xs">Мин. длительность (мин)</Label>
               <Input className="h-9 text-sm" type="number" min="5" value={sessionModal.minDuration} onChange={(e) => setSessionModal((s) => ({ ...s, minDuration: e.target.value }))} />
             </div>
-            <Button className="w-full" onClick={handleSessionSave} disabled={createSession.isPending || updateSession.isPending}>
+            <Button className="w-full" onClick={handleSessionSave}>
               {sessionModal.id ? "Сохранить" : "Добавить тип"}
             </Button>
           </div>
@@ -711,7 +725,7 @@ export default function Settings() {
                 </p>
               )}
             </div>
-            <Button className="w-full mt-1" onClick={handlePkgSave} disabled={createPkg.isPending || updatePkg.isPending}>
+            <Button className="w-full mt-1" onClick={handlePkgSave}>
               {pkgModal.id ? "Сохранить" : "Создать пакет"}
             </Button>
           </div>

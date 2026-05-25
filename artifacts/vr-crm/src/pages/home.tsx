@@ -11,6 +11,7 @@ import {
   useListPackages,
   getListBookingsQueryKey,
 } from "@workspace/api-client-react";
+import { useLocalStorage } from "@/lib/store";
 import {
   ChevronLeft,
   ChevronRight,
@@ -167,7 +168,9 @@ export default function Home() {
     { date: dateStr },
     { query: { queryKey: getListBookingsQueryKey({ date: dateStr }) } }
   );
-  const bookings = rawBookings.length > 0 ? rawBookings : MOCK_BOOKINGS_HOME;
+  const [allLocalBookings, setAllLocalBookings] = useLocalStorage<Record<string, Booking[]>>("vrpark_bookings", {});
+  const localDateBookings = allLocalBookings[dateStr];
+  const bookings = localDateBookings !== undefined ? localDateBookings : MOCK_BOOKINGS_HOME;
   const isLoadingBookings = false;
 
   const queryClient = useQueryClient();
@@ -305,50 +308,11 @@ export default function Home() {
     queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey({ date: dateStr }) });
   }, [queryClient, dateStr]);
 
-  const createBooking = useCreateBooking({
-    mutation: {
-      onSuccess: () => {
-        invalidateBookings();
-        toast.success("Бронь создана");
-        setIsModalOpen(false);
-      },
-      onError: (err: unknown) => {
-        const msg =
-          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-          "Не удалось создать бронь";
-        toast.error(msg);
-      },
-    },
-  });
+  useCreateBooking({});
+  useUpdateBooking({});
+  useDeleteBooking({});
 
-  const updateBooking = useUpdateBooking({
-    mutation: {
-      onSuccess: () => {
-        invalidateBookings();
-        toast.success("Бронь обновлена");
-        setIsModalOpen(false);
-      },
-      onError: (err: unknown) => {
-        const msg =
-          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-          "Конфликт брони";
-        toast.error(msg);
-      },
-    },
-  });
-
-  const deleteBooking = useDeleteBooking({
-    mutation: {
-      onSuccess: () => {
-        invalidateBookings();
-        toast.success("Бронь удалена");
-        setIsModalOpen(false);
-      },
-      onError: () => toast.error("Ошибка удаления"),
-    },
-  });
-
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(() => {
     if (!form.clientName.trim()) {
       toast.error("Введите имя клиента");
       return;
@@ -356,67 +320,76 @@ export default function Home() {
     const startISO = `${form.date}T${form.startTime}:00.000Z`;
     const endISO = `${form.date}T${form.endTime}:00.000Z`;
 
-    const base = {
-      clientName: form.clientName,
-      clientPhone: form.clientPhone || undefined,
-      sessionTypeId: form.sessionTypeId ? Number(form.sessionTypeId) : undefined,
-      startTime: startISO,
-      endTime: endISO,
-      guestsCount: parseInt(form.guestsCount) || 1,
-      status: form.isEvent ? "event" : (form.status as "confirmed" | "pending" | "cancelled" | "event"),
-      notes: form.notes || undefined,
-      adminName: form.adminName || undefined,
-      packageId: form.isEvent && form.packageId ? Number(form.packageId) : undefined,
+    const makeBooking = (zoneId?: number): Booking => {
+      const zone = zones.find((z) => z.id === zoneId);
+      const sessionType = sessionTypes.find((st) => st.id === Number(form.sessionTypeId));
+      return {
+        id: Date.now() + Math.floor(Math.random() * 100000),
+        clientId: null,
+        clientName: form.clientName,
+        clientPhone: form.clientPhone || null,
+        zoneId: zoneId ?? (form.zoneId ? Number(form.zoneId) : null),
+        zoneName: zone?.name ?? null,
+        zoneColor: zone?.color ?? null,
+        sessionTypeId: sessionType?.id ?? null,
+        sessionTypeName: sessionType?.name ?? null,
+        sessionTypeColor: sessionType?.color ?? null,
+        packageId: form.isEvent && form.packageId ? Number(form.packageId) : null,
+        startTime: startISO,
+        endTime: endISO,
+        guestsCount: parseInt(form.guestsCount) || 1,
+        status: form.isEvent ? "event" : (form.status as Booking["status"]),
+        notes: form.notes || null,
+        adminName: form.adminName || null,
+      };
     };
 
+    const bookingDate = form.date;
+    const existingForDate =
+      allLocalBookings[bookingDate] !== undefined
+        ? allLocalBookings[bookingDate]
+        : bookingDate === dateStr
+        ? [...MOCK_BOOKINGS_HOME]
+        : [];
+
+    if (editingId !== null) {
+      const updated = makeBooking(form.zoneId ? Number(form.zoneId) : undefined);
+      setAllLocalBookings((prev) => ({
+        ...prev,
+        [bookingDate]: (prev[bookingDate] !== undefined ? prev[bookingDate] : existingForDate).map(
+          (b) => (b.id === editingId ? { ...b, ...updated, id: editingId } : b)
+        ),
+      }));
+      toast.success("Бронь обновлена");
+      setIsModalOpen(false);
+      return;
+    }
+
     if (form.isEvent && form.packageId) {
-      // Create one booking per zone in the package
       const pkg = packages.find((p) => p.id === Number(form.packageId));
       const zoneIds = pkg?.zoneIds ?? [];
       if (zoneIds.length === 0) {
         toast.error("Выберите пакет с зонами");
         return;
       }
-      if (editingId !== null) {
-        // For edit, just update the one booking
-        updateBooking.mutate({ id: editingId, data: { ...base, zoneId: Number(form.zoneId) || undefined } });
-      } else {
-        // Create bookings for all zones in package
-        let first = true;
-        for (const zoneId of zoneIds) {
-          if (first) {
-            first = false;
-            createBooking.mutate({ data: { ...base, zoneId } });
-          } else {
-            // Fire subsequent creates without closing modal
-            try {
-              await fetch(`/api/bookings`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...base, zoneId }),
-              });
-            } catch {
-              // best effort
-            }
-          }
-        }
-        // Invalidate after a short delay to catch all creates
-        setTimeout(() => invalidateBookings(), 800);
-      }
+      const newBookings = zoneIds.map((zid, i) => ({ ...makeBooking(zid), id: Date.now() + i }));
+      setAllLocalBookings((prev) => ({
+        ...prev,
+        [bookingDate]: [...existingForDate, ...newBookings],
+      }));
+      toast.success("Мероприятие создано");
+      setIsModalOpen(false);
       return;
     }
 
-    const data = {
-      ...base,
-      zoneId: form.zoneId ? Number(form.zoneId) : undefined,
-    };
-
-    if (editingId !== null) {
-      updateBooking.mutate({ id: editingId, data });
-    } else {
-      createBooking.mutate({ data });
-    }
-  }, [form, editingId, packages, createBooking, updateBooking, invalidateBookings]);
+    const newBooking = makeBooking(form.zoneId ? Number(form.zoneId) : undefined);
+    setAllLocalBookings((prev) => ({
+      ...prev,
+      [bookingDate]: [...existingForDate, newBooking],
+    }));
+    toast.success("Бронь создана");
+    setIsModalOpen(false);
+  }, [form, editingId, packages, zones, sessionTypes, allLocalBookings, dateStr, setAllLocalBookings]);
 
   const selectedPkg = packages.find((p) => p.id === Number(form.packageId));
 
@@ -1015,10 +988,12 @@ export default function Home() {
                   className="h-9 gap-1.5"
                   onClick={() => {
                     if (confirm("Удалить бронь?")) {
-                      deleteBooking.mutate({ id: editingId });
+                      const existing = allLocalBookings[dateStr] !== undefined ? allLocalBookings[dateStr] : [...MOCK_BOOKINGS_HOME];
+                      setAllLocalBookings((prev) => ({ ...prev, [dateStr]: existing.filter((b) => b.id !== editingId) }));
+                      toast.success("Бронь удалена");
+                      setIsModalOpen(false);
                     }
                   }}
-                  disabled={deleteBooking.isPending}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
@@ -1026,11 +1001,8 @@ export default function Home() {
               <Button
                 className="flex-1"
                 onClick={handleSubmit}
-                disabled={createBooking.isPending || updateBooking.isPending}
               >
-                {createBooking.isPending || updateBooking.isPending
-                  ? "Сохранение..."
-                  : editingId
+                {editingId
                   ? "Сохранить изменения"
                   : form.isEvent && selectedPkg
                   ? `Создать для ${selectedPkg.zoneIds.length} зон`
