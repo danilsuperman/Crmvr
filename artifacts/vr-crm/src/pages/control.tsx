@@ -50,8 +50,8 @@ const MOCK_DEVICE_MAP: Record<string, Device[]> = {
     { id: "r2", name: "Racing-2", status: "error", game: null, battery: 45, temp: 62, wifi: 40, sessionTimer: null, zone: "Racing" },
   ],
   "Racing Zone": [
-    { id: "rz1", name: "Racing-1", status: "active", game: "GT7 VR", battery: 71, temp: 48, wifi: 82, sessionTimer: 891, zone: "Racing Zone" },
-    { id: "rz2", name: "Racing-2", status: "error", game: null, battery: 45, temp: 62, wifi: 40, sessionTimer: null, zone: "Racing Zone" },
+    { id: "r1", name: "Racing-1", status: "active", game: "GT7 VR", battery: 71, temp: 48, wifi: 82, sessionTimer: 891, zone: "Racing Zone" },
+    { id: "r2", name: "Racing-2", status: "error", game: null, battery: 45, temp: 62, wifi: 40, sessionTimer: null, zone: "Racing Zone" },
   ],
   "PS5": [
     { id: "p1", name: "PS5-VR2 #1", status: "idle", game: null, battery: 100, temp: 37, wifi: 99, sessionTimer: null, zone: "PS5" },
