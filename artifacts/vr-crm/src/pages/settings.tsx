@@ -62,15 +62,15 @@ export default function Settings() {
     { id: 6, name: "Motion", color: "#10b981", capacity: 1, openTime: "11:00", closeTime: "21:00" },
   ];
   const MOCK_SESSION_TYPES_DATA = [
-    { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30 },
-    { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60 },
-    { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90 },
-    { id: 4, name: "Максимальный 120 мин", color: "#10b981", minDuration: 120 },
+    { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30, price: 1200 },
+    { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60, price: 2000 },
+    { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90, price: 3500 },
+    { id: 4, name: "Максимальный 120 мин", color: "#10b981", minDuration: 120, price: 4800 },
   ];
   const MOCK_PACKAGES_DATA = [
-    { id: 1, name: "День рождения VIP", description: "Всё включено, до 8 чел.", maxGuests: 8, zoneIds: [1, 3] },
-    { id: 2, name: "Корпоратив Standard", description: "Командный тимбилдинг", maxGuests: 20, zoneIds: [1, 2, 4] },
-    { id: 3, name: "Full Park", description: "Весь парк в ваше распоряжение", maxGuests: 50, zoneIds: [1, 2, 3, 4, 5, 6] },
+    { id: 1, name: "День рождения VIP", description: "Всё включено, до 8 чел.", maxGuests: 8, zoneIds: [1, 3], price: 15000 },
+    { id: 2, name: "Корпоратив Standard", description: "Командный тимбилдинг", maxGuests: 20, zoneIds: [1, 2, 4], price: 35000 },
+    { id: 3, name: "Full Park", description: "Весь парк в ваше распоряжение", maxGuests: 50, zoneIds: [1, 2, 3, 4, 5, 6], price: 80000 },
   ];
 
   useListZones();
@@ -113,14 +113,14 @@ export default function Settings() {
   // Session modal
   const [sessionModal, setSessionModal] = useState<{
     open: boolean; id?: number;
-    name: string; color: string; minDuration: string;
-  }>({ open: false, name: "", color: "#8b5cf6", minDuration: "30" });
+    name: string; color: string; minDuration: string; price: string;
+  }>({ open: false, name: "", color: "#8b5cf6", minDuration: "30", price: "" });
 
   // Package modal
   const [pkgModal, setPkgModal] = useState<{
     open: boolean; id?: number;
-    name: string; description: string; maxGuests: string; zoneIds: number[];
-  }>({ open: false, name: "", description: "", maxGuests: "10", zoneIds: [] });
+    name: string; description: string; maxGuests: string; zoneIds: number[]; price: string;
+  }>({ open: false, name: "", description: "", maxGuests: "10", zoneIds: [], price: "" });
 
   // Mutations — Zones
   const createZone = useCreateZone({ mutation: { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListZonesQueryKey() }); toast.success("Зона добавлена"); setZoneModal(z => ({ ...z, open: false })); }, onError: () => toast.error("Ошибка") } });
@@ -152,7 +152,7 @@ export default function Settings() {
 
   const handleSessionSave = () => {
     if (!sessionModal.name.trim()) { toast.error("Введите название типа"); return; }
-    const entry = { name: sessionModal.name, color: sessionModal.color, minDuration: Number(sessionModal.minDuration) || 30 };
+    const entry = { name: sessionModal.name, color: sessionModal.color, minDuration: Number(sessionModal.minDuration) || 30, price: Number(sessionModal.price) || 0 };
     if (sessionModal.id) {
       setSessionTypes((ss) => ss.map((s) => s.id === sessionModal.id ? { ...s, ...entry } : s));
       toast.success("Тип обновлён");
@@ -165,7 +165,7 @@ export default function Settings() {
 
   const handlePkgSave = () => {
     if (!pkgModal.name.trim()) { toast.error("Введите название пакета"); return; }
-    const entry = { name: pkgModal.name, description: pkgModal.description || "", zoneIds: pkgModal.zoneIds, maxGuests: Number(pkgModal.maxGuests) || 10 };
+    const entry = { name: pkgModal.name, description: pkgModal.description || "", zoneIds: pkgModal.zoneIds, maxGuests: Number(pkgModal.maxGuests) || 10, price: Number(pkgModal.price) || 0 };
     if (pkgModal.id) {
       setPackages((ps) => ps.map((p) => p.id === pkgModal.id ? { ...p, ...entry } : p));
       toast.success("Пакет обновлён");
@@ -279,14 +279,15 @@ export default function Settings() {
                         <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
                         <div>
                           <CardTitle className="text-sm">{st.name}</CardTitle>
-                          <CardDescription className="text-xs flex items-center gap-1">
+                          <CardDescription className="text-xs flex items-center gap-2">
                             <Clock className="w-3 h-3" /> Мин. {st.minDuration} мин
+                            {(st as any).price ? <span className="text-green-500 font-semibold">{(st as any).price.toLocaleString("ru")} ₽</span> : null}
                           </CardDescription>
                         </div>
                       </div>
                       <div className="flex gap-1.5">
                         <Button variant="ghost" size="icon" className="h-7 w-7"
-                          onClick={() => setSessionModal({ open: true, id: st.id, name: st.name, color: st.color, minDuration: String(st.minDuration) })}>
+                          onClick={() => setSessionModal({ open: true, id: st.id, name: st.name, color: st.color, minDuration: String(st.minDuration), price: String((st as any).price || "") })}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
@@ -312,7 +313,7 @@ export default function Settings() {
               </div>
               <Button
                 size="sm" className="h-8 gap-1.5 text-xs"
-                onClick={() => setPkgModal({ open: true, name: "", description: "", maxGuests: "10", zoneIds: [] })}
+                onClick={() => setPkgModal({ open: true, name: "", description: "", maxGuests: "10", zoneIds: [], price: "" })}
               >
                 <Plus className="w-3.5 h-3.5" /> Добавить пакет
               </Button>
@@ -371,6 +372,7 @@ export default function Settings() {
                               description: pkg.description || "",
                               maxGuests: pkg.maxGuests.toString(),
                               zoneIds: pkg.zoneIds as number[],
+                              price: String((pkg as any).price || ""),
                             })}
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -652,6 +654,10 @@ export default function Settings() {
               <Label className="text-xs">Мин. длительность (мин)</Label>
               <Input className="h-9 text-sm" type="number" min="5" value={sessionModal.minDuration} onChange={(e) => setSessionModal((s) => ({ ...s, minDuration: e.target.value }))} />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Стоимость (₽)</Label>
+              <Input className="h-9 text-sm" type="number" min="0" placeholder="0" value={sessionModal.price} onChange={(e) => setSessionModal((s) => ({ ...s, price: e.target.value }))} />
+            </div>
             <Button className="w-full" onClick={handleSessionSave}>
               {sessionModal.id ? "Сохранить" : "Добавить тип"}
             </Button>
@@ -724,6 +730,17 @@ export default function Settings() {
                   Выбрано: {pkgModal.zoneIds.length} зон
                 </p>
               )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Стоимость пакета (₽)</Label>
+              <Input
+                className="h-9 text-sm"
+                type="number"
+                min="0"
+                placeholder="15000"
+                value={pkgModal.price}
+                onChange={(e) => setPkgModal((p) => ({ ...p, price: e.target.value }))}
+              />
             </div>
             <Button className="w-full mt-1" onClick={handlePkgSave}>
               {pkgModal.id ? "Сохранить" : "Создать пакет"}
