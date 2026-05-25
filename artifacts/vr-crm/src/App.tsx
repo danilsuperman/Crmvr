@@ -18,12 +18,14 @@ import Analytics from "@/pages/analytics";
 import Registration from "@/pages/registration";
 import Landing from "@/pages/landing";
 import Network from "@/pages/network";
+import Pricing from "@/pages/pricing";
 
 const queryClient = new QueryClient();
 
 function Router() {
   const [location] = useLocation();
   if (location === "/") return <Landing />;
+  if (location === "/pricing") return <Pricing />;
   return (
     <Shell>
       <Switch>

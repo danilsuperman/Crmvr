@@ -1044,7 +1044,7 @@ function FinalCTASection({ onEnterApp }: { onEnterApp: () => void }) {
 
 function Footer() {
   const cols = [
-    { title: "Продукт", links: ["Возможности", "Цены", "Интеграции", "Changelog"] },
+    { title: "Продукт", links: ["Возможности", "Цены", "Интеграции", "Changelog"], hrefs: ["#features", "/pricing", "#integrations", "#changelog"] },
     { title: "Компания", links: ["О нас", "Контакты", "Партнёрам", "Карьера"] },
     { title: "Ресурсы", links: ["Документация", "API Reference", "Поддержка", "Статус"] },
     { title: "Legal", links: ["Privacy Policy", "Terms of Service", "Cookie Policy"] },
@@ -1071,9 +1071,14 @@ function Footer() {
             <div key={col.title}>
               <p className="text-xs font-bold text-white/80 uppercase tracking-wider mb-4">{col.title}</p>
               <ul className="space-y-2.5">
-                {col.links.map((link) => (
-                  <li key={link}><a href="#" className="text-sm text-white/40 hover:text-white/80 transition-colors">{link}</a></li>
-                ))}
+                {col.links.map((link, i) => {
+                  const href = (col as any).hrefs?.[i] ?? "#";
+                  return (
+                    <li key={link}>
+                      <a href={href} className="text-sm text-white/40 hover:text-white/80 transition-colors">{link}</a>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
