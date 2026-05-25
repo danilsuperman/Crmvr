@@ -10,6 +10,26 @@ import {
 
 type DeviceStatus = "idle" | "active" | "preparing" | "offline" | "low_battery" | "error";
 
+interface StoredDevice {
+  id: string;
+  name: string;
+  zone: string;
+  status: DeviceStatus;
+  battery: number;
+  temp: number;
+  wifi: number;
+  model: string;
+}
+
+interface SettingsZone {
+  id: number;
+  name: string;
+  color: string;
+  capacity: number;
+  openTime: string;
+  closeTime: string;
+}
+
 interface Device {
   id: string;
   name: string;
@@ -28,48 +48,51 @@ interface Zone {
   devices: Device[];
 }
 
-// Mock devices keyed by zone name — these represent real headsets in each zone
-const MOCK_DEVICE_MAP: Record<string, Device[]> = {
-  "Arena A": [
-    { id: "a1", name: "Headset A-1", status: "active", game: "Beat Saber", battery: 78, temp: 42, wifi: 85, sessionTimer: 1234, zone: "Arena A" },
-    { id: "a2", name: "Headset A-2", status: "idle", game: null, battery: 95, temp: 38, wifi: 92, sessionTimer: null, zone: "Arena A" },
-    { id: "a3", name: "Headset A-3", status: "preparing", game: "Superhot VR", battery: 61, temp: 39, wifi: 78, sessionTimer: null, zone: "Arena A" },
-    { id: "a4", name: "Headset A-4", status: "offline", game: null, battery: 12, temp: 35, wifi: 0, sessionTimer: null, zone: "Arena A" },
-  ],
-  "Arena B": [
-    { id: "b1", name: "Headset B-1", status: "active", game: "Pistol Whip", battery: 55, temp: 44, wifi: 90, sessionTimer: 2891, zone: "Arena B" },
-    { id: "b2", name: "Headset B-2", status: "active", game: "Pistol Whip", battery: 60, temp: 43, wifi: 88, sessionTimer: 2891, zone: "Arena B" },
-    { id: "b3", name: "Headset B-3", status: "low_battery", game: null, battery: 8, temp: 37, wifi: 75, sessionTimer: null, zone: "Arena B" },
-  ],
-  "VR Solo": [
-    { id: "s1", name: "Solo-1", status: "active", game: "Half-Life: Alyx", battery: 82, temp: 41, wifi: 94, sessionTimer: 4512, zone: "VR Solo" },
-    { id: "s2", name: "Solo-2", status: "idle", game: null, battery: 100, temp: 36, wifi: 97, sessionTimer: null, zone: "VR Solo" },
-  ],
-  "Racing": [
-    { id: "r1", name: "Racing-1", status: "active", game: "GT7 VR", battery: 71, temp: 48, wifi: 82, sessionTimer: 891, zone: "Racing" },
-    { id: "r2", name: "Racing-2", status: "error", game: null, battery: 45, temp: 62, wifi: 40, sessionTimer: null, zone: "Racing" },
-  ],
-  "Racing Zone": [
-    { id: "r1", name: "Racing-1", status: "active", game: "GT7 VR", battery: 71, temp: 48, wifi: 82, sessionTimer: 891, zone: "Racing Zone" },
-    { id: "r2", name: "Racing-2", status: "error", game: null, battery: 45, temp: 62, wifi: 40, sessionTimer: null, zone: "Racing Zone" },
-  ],
-  "PS5": [
-    { id: "p1", name: "PS5-VR2 #1", status: "idle", game: null, battery: 100, temp: 37, wifi: 99, sessionTimer: null, zone: "PS5" },
-    { id: "p2", name: "PS5-VR2 #2", status: "preparing", game: "Horizon VR", battery: 88, temp: 39, wifi: 91, sessionTimer: null, zone: "PS5" },
-  ],
-  "Motion": [
-    { id: "m1", name: "Motion-1", status: "active", game: "Amusement Park", battery: 66, temp: 45, wifi: 86, sessionTimer: 3200, zone: "Motion" },
-    { id: "m2", name: "Motion-2", status: "idle", game: null, battery: 93, temp: 37, wifi: 89, sessionTimer: null, zone: "Motion" },
-  ],
+// Simulated live session state keyed by device ID
+// In a real system this would come from the API
+const MOCK_SESSION_STATE: Record<string, { game: string | null; sessionTimer: number | null }> = {
+  a1: { game: "Beat Saber", sessionTimer: 1234 },
+  a2: { game: null, sessionTimer: null },
+  a3: { game: "Superhot VR", sessionTimer: null },
+  a4: { game: null, sessionTimer: null },
+  b1: { game: "Pistol Whip", sessionTimer: 2891 },
+  b2: { game: "Pistol Whip", sessionTimer: 2891 },
+  b3: { game: null, sessionTimer: null },
+  s1: { game: "Half-Life: Alyx", sessionTimer: 4512 },
+  s2: { game: null, sessionTimer: null },
+  r1: { game: "GT7 VR", sessionTimer: 891 },
+  r2: { game: null, sessionTimer: null },
+  p1: { game: null, sessionTimer: null },
+  p2: { game: "Horizon VR", sessionTimer: null },
+  m1: { game: "Amusement Park", sessionTimer: 3200 },
+  m2: { game: null, sessionTimer: null },
 };
 
-const DEFAULT_SETTINGS_ZONES = [
+const DEFAULT_SETTINGS_ZONES: SettingsZone[] = [
   { id: 1, name: "Arena A", color: "#6366f1", capacity: 4, openTime: "10:00", closeTime: "22:00" },
   { id: 2, name: "Arena B", color: "#8b5cf6", capacity: 4, openTime: "10:00", closeTime: "22:00" },
   { id: 3, name: "VR Solo", color: "#ec4899", capacity: 1, openTime: "10:00", closeTime: "22:00" },
   { id: 4, name: "Racing Zone", color: "#f59e0b", capacity: 2, openTime: "12:00", closeTime: "22:00" },
   { id: 5, name: "PS5", color: "#3b82f6", capacity: 2, openTime: "10:00", closeTime: "23:00" },
   { id: 6, name: "Motion", color: "#10b981", capacity: 1, openTime: "11:00", closeTime: "21:00" },
+];
+
+const DEFAULT_DEVICES: StoredDevice[] = [
+  { id: "a1", name: "Headset A-1", zone: "Arena A", status: "active", battery: 78, temp: 42, wifi: 85, model: "Meta Quest 3" },
+  { id: "a2", name: "Headset A-2", zone: "Arena A", status: "idle", battery: 95, temp: 38, wifi: 92, model: "Meta Quest 3" },
+  { id: "a3", name: "Headset A-3", zone: "Arena A", status: "preparing", battery: 61, temp: 39, wifi: 78, model: "Meta Quest 3" },
+  { id: "a4", name: "Headset A-4", zone: "Arena A", status: "offline", battery: 12, temp: 35, wifi: 0, model: "Meta Quest 3" },
+  { id: "b1", name: "Headset B-1", zone: "Arena B", status: "active", battery: 55, temp: 44, wifi: 90, model: "Pico 4" },
+  { id: "b2", name: "Headset B-2", zone: "Arena B", status: "active", battery: 60, temp: 43, wifi: 88, model: "Pico 4" },
+  { id: "b3", name: "Headset B-3", zone: "Arena B", status: "low_battery", battery: 8, temp: 37, wifi: 75, model: "Pico 4" },
+  { id: "s1", name: "Solo-1", zone: "VR Solo", status: "active", battery: 82, temp: 41, wifi: 94, model: "Meta Quest Pro" },
+  { id: "s2", name: "Solo-2", zone: "VR Solo", status: "idle", battery: 100, temp: 36, wifi: 97, model: "Meta Quest Pro" },
+  { id: "r1", name: "Racing-1", zone: "Racing Zone", status: "active", battery: 71, temp: 48, wifi: 82, model: "PS VR2" },
+  { id: "r2", name: "Racing-2", zone: "Racing Zone", status: "error", battery: 45, temp: 62, wifi: 40, model: "PS VR2" },
+  { id: "p1", name: "PS5-VR2 #1", zone: "PS5", status: "idle", battery: 100, temp: 37, wifi: 99, model: "PS VR2" },
+  { id: "p2", name: "PS5-VR2 #2", zone: "PS5", status: "preparing", battery: 88, temp: 39, wifi: 91, model: "PS VR2" },
+  { id: "m1", name: "Motion-1", zone: "Motion", status: "active", battery: 66, temp: 45, wifi: 86, model: "Meta Quest 3" },
+  { id: "m2", name: "Motion-2", zone: "Motion", status: "idle", battery: 93, temp: 37, wifi: 89, model: "Meta Quest 3" },
 ];
 
 function formatTimer(seconds: number) {
@@ -151,18 +174,37 @@ function DeviceCard({ device, onClick }: { device: Device; onClick: () => void }
 export default function Control() {
   const [, navigate] = useLocation();
 
-  // Read zones from settings localStorage — synced with Settings page
-  const [settingsZones] = useLocalStorage("vrpark_zones", DEFAULT_SETTINGS_ZONES);
+  const [settingsZones] = useLocalStorage<SettingsZone[]>("vrpark_zones", DEFAULT_SETTINGS_ZONES);
+  const [storedDevices] = useLocalStorage<StoredDevice[]>("vrpark_devices", DEFAULT_DEVICES);
 
-  // Build zones for display: use settings zone names/colors, attach mock devices by name match
+  // Map stored devices to control center Device format (merge with session state)
+  const controlDevices: Device[] = storedDevices.map(d => {
+    const session = MOCK_SESSION_STATE[d.id] ?? { game: null, sessionTimer: null };
+    return {
+      id: d.id,
+      name: d.name,
+      zone: d.zone,
+      status: d.status,
+      battery: d.battery,
+      temp: d.temp,
+      wifi: d.wifi,
+      game: d.status === "active" ? session.game : null,
+      sessionTimer: d.status === "active" ? session.sessionTimer : null,
+    };
+  });
+
+  // Group devices by zone, using settings zones as the structure
   const zones: Zone[] = settingsZones.map(sz => ({
     name: sz.name,
     color: sz.color,
-    devices: (MOCK_DEVICE_MAP[sz.name] ?? []).map(d => ({ ...d, zone: sz.name })),
+    devices: controlDevices.filter(d => d.zone === sz.name),
   }));
 
-  const allDevices = zones.flatMap(z => z.devices);
-  const totalDevices = allDevices.length;
+  // Devices not assigned to any settings zone (e.g. newly added with old zone name)
+  const knownZoneNames = new Set(settingsZones.map(z => z.name));
+  const unassigned = controlDevices.filter(d => !knownZoneNames.has(d.zone));
+
+  const allDevices = controlDevices;
   const activeDevices = allDevices.filter(d => d.status === "active").length;
   const errorDevices = allDevices.filter(d => d.status === "error" || d.status === "low_battery").length;
 
@@ -181,17 +223,11 @@ export default function Control() {
               <span>{errorDevices} требуют внимания</span>
             </div>
           )}
-          <Badge variant="outline" className="text-[10px]">{totalDevices} устройств</Badge>
+          <Badge variant="outline" className="text-[10px]">{allDevices.length} устройств</Badge>
         </div>
       </header>
 
       <div className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6 space-y-6">
-        {zones.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-            <Monitor className="w-8 h-8 mb-2 opacity-40" />
-            <p className="text-sm">Нет зон. Добавьте зоны в разделе Настройки.</p>
-          </div>
-        )}
         {zones.map((zone) => (
           <div key={zone.name}>
             <div className="flex items-center gap-2 mb-3">
@@ -216,6 +252,33 @@ export default function Control() {
             )}
           </div>
         ))}
+
+        {/* Devices with unrecognized zones */}
+        {unassigned.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-3 h-3 rounded-full bg-muted-foreground/40" />
+              <h2 className="text-sm font-semibold text-muted-foreground">Без зоны</h2>
+              <span className="text-[10px] text-muted-foreground">{unassigned.length} устр.</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+              {unassigned.map((device) => (
+                <DeviceCard
+                  key={device.id}
+                  device={device}
+                  onClick={() => navigate(`/control/${device.id}`)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allDevices.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+            <Monitor className="w-8 h-8 mb-2 opacity-40" />
+            <p className="text-sm">Нет устройств. Добавьте их в разделе Устройства.</p>
+          </div>
+        )}
       </div>
     </div>
   );
