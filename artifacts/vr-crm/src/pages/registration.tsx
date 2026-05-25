@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { WidgetPreview } from "@/components/widget-preview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,7 @@ function SectionHeader({ title, desc, action }: { title: string; desc?: string; 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function Registration() {
+  const [showWidget, setShowWidget] = useState(false);
   const [zones, setZones] = useState(ZONES_DATA);
   const [copied, setCopied] = useState<string | null>(null);
   const [newPageOpen, setNewPageOpen] = useState(false);
@@ -157,9 +159,19 @@ export default function Registration() {
 
   return (
     <div className="flex flex-col h-full">
+      {showWidget && <WidgetPreview onClose={() => setShowWidget(false)} />}
+
       <header className="h-14 border-b border-border/50 flex items-center px-4 md:px-6 bg-card/50 backdrop-blur-sm shrink-0">
         <h1 className="text-lg font-bold font-mono">Конструктор VR-приключений</h1>
         <Badge className="ml-3 text-[10px] bg-primary/20 text-primary border-primary/30">Booking Builder</Badge>
+        <Button
+          size="sm"
+          className="ml-auto h-8 gap-1.5 text-xs bg-primary/90 hover:bg-primary"
+          onClick={() => setShowWidget(true)}
+        >
+          <Play className="w-3.5 h-3.5" />
+          Протестировать виджет
+        </Button>
       </header>
 
       <div className="flex-1 overflow-auto pb-20 md:pb-0">

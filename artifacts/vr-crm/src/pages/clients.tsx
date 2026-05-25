@@ -8,10 +8,29 @@ import { Search, Plus, Phone, Calendar, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
+const MOCK_CLIENTS_DATA = [
+  { id: 1, name: "Андрей Смирнов", phone: "+7 916 123-45-67", visitCount: 12, lastVisit: "2026-05-24T10:00:00Z" },
+  { id: 2, name: "Мария Козлова", phone: "+7 903 987-65-43", visitCount: 8, lastVisit: "2026-05-23T15:30:00Z" },
+  { id: 3, name: "Дмитрий Новиков", phone: "+7 926 555-12-34", visitCount: 3, lastVisit: "2026-05-20T12:00:00Z" },
+  { id: 4, name: "Елена Петрова", phone: "+7 985 432-10-98", visitCount: 25, lastVisit: "2026-05-25T11:00:00Z" },
+  { id: 5, name: "Иван Сидоров", phone: "+7 965 876-54-32", visitCount: 1, lastVisit: "2026-05-18T16:00:00Z" },
+  { id: 6, name: "Наталья Волкова", phone: "+7 911 234-56-78", visitCount: 7, lastVisit: "2026-05-22T14:00:00Z" },
+  { id: 7, name: "Алексей Морозов", phone: "+7 977 345-67-89", visitCount: 15, lastVisit: "2026-05-21T10:30:00Z" },
+  { id: 8, name: "Светлана Орлова", phone: "+7 999 456-78-90", visitCount: 4, lastVisit: "2026-05-19T13:00:00Z" },
+];
+
 export default function Clients() {
   const [search, setSearch] = useState("");
   const [, navigate] = useLocation();
-  const { data: clients = [], isLoading } = useListClients({ search });
+  const { data: rawClients = [] } = useListClients({ search });
+  const isLoading = false;
+  const clients = rawClients.length > 0
+    ? rawClients
+    : MOCK_CLIENTS_DATA.filter(c =>
+        !search ||
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.phone.includes(search)
+      );
 
   return (
     <div className="flex flex-col h-full z-10">

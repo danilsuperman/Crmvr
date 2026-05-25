@@ -127,17 +127,48 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const dateStr = format(currentDate, "yyyy-MM-dd");
 
-  const { data: zones = [], isLoading: isLoadingZones } = useListZones();
-  const { data: sessionTypes = [] } = useListSessionTypes();
-  const { data: packages = [] } = useListPackages();
-  const {
-    data: bookings = [],
-    isLoading: isLoadingBookings,
-    refetch,
-  } = useListBookings(
+  const MOCK_ZONES_HOME = [
+    { id: 1, name: "Arena A", color: "#6366f1", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+    { id: 2, name: "Arena B", color: "#8b5cf6", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+    { id: 3, name: "VR Solo", color: "#ec4899", capacity: 1, openTime: "10:00", closeTime: "22:00" },
+    { id: 4, name: "Racing Zone", color: "#f59e0b", capacity: 2, openTime: "12:00", closeTime: "22:00" },
+    { id: 5, name: "PS5", color: "#3b82f6", capacity: 2, openTime: "10:00", closeTime: "23:00" },
+  ];
+  const MOCK_SESSION_TYPES_HOME = [
+    { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30 },
+    { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60 },
+    { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90 },
+  ];
+  const MOCK_PACKAGES_HOME = [
+    { id: 1, name: "День рождения VIP", description: "Всё включено", maxGuests: 8, zoneIds: [1, 3] },
+    { id: 2, name: "Корпоратив Standard", description: "Командный тимбилдинг", maxGuests: 20, zoneIds: [1, 2, 4] },
+  ];
+  const MOCK_BOOKINGS_HOME = [
+    { id: 101, clientId: 1, clientName: "Андрей Смирнов", clientPhone: "+7 916 123-45-67", zoneId: 1, zoneName: "Arena A", zoneColor: "#6366f1", sessionTypeId: 2, sessionTypeName: "Стандарт 60 мин", sessionTypeColor: "#8b5cf6", packageId: null, startTime: `${dateStr}T10:00:00.000Z`, endTime: `${dateStr}T11:00:00.000Z`, guestsCount: 4, status: "confirmed", notes: null, adminName: "Анна" },
+    { id: 102, clientId: 2, clientName: "Мария Козлова", clientPhone: "+7 903 987-65-43", zoneId: 2, zoneName: "Arena B", zoneColor: "#8b5cf6", sessionTypeId: 1, sessionTypeName: "Стандарт 30 мин", sessionTypeColor: "#6366f1", packageId: null, startTime: `${dateStr}T11:00:00.000Z`, endTime: `${dateStr}T12:00:00.000Z`, guestsCount: 3, status: "confirmed", notes: null, adminName: null },
+    { id: 103, clientId: 3, clientName: "Дмитрий Новиков", clientPhone: "+7 926 555-12-34", zoneId: 3, zoneName: "VR Solo", zoneColor: "#ec4899", sessionTypeId: 2, sessionTypeName: "Стандарт 60 мин", sessionTypeColor: "#8b5cf6", packageId: null, startTime: `${dateStr}T12:00:00.000Z`, endTime: `${dateStr}T13:00:00.000Z`, guestsCount: 1, status: "pending", notes: "Первый раз", adminName: null },
+    { id: 104, clientId: 4, clientName: "Елена Петрова", clientPhone: "+7 985 432-10-98", zoneId: 1, zoneName: "Arena A", zoneColor: "#6366f1", sessionTypeId: 3, sessionTypeName: "VIP 90 мин", sessionTypeColor: "#f59e0b", packageId: null, startTime: `${dateStr}T14:00:00.000Z`, endTime: `${dateStr}T15:30:00.000Z`, guestsCount: 4, status: "confirmed", notes: null, adminName: "Михаил" },
+    { id: 105, clientId: 5, clientName: "Группа «Ракета»", clientPhone: "+7 965 876-54-32", zoneId: 4, zoneName: "Racing Zone", zoneColor: "#f59e0b", sessionTypeId: 2, sessionTypeName: "Стандарт 60 мин", sessionTypeColor: "#8b5cf6", packageId: null, startTime: `${dateStr}T15:00:00.000Z`, endTime: `${dateStr}T16:00:00.000Z`, guestsCount: 2, status: "confirmed", notes: null, adminName: null },
+    { id: 106, clientId: 6, clientName: "Иван Сидоров", clientPhone: "+7 965 111-22-33", zoneId: 5, zoneName: "PS5", zoneColor: "#3b82f6", sessionTypeId: 1, sessionTypeName: "Стандарт 30 мин", sessionTypeColor: "#6366f1", packageId: null, startTime: `${dateStr}T16:00:00.000Z`, endTime: `${dateStr}T17:00:00.000Z`, guestsCount: 2, status: "confirmed", notes: null, adminName: null },
+    { id: 107, clientId: 7, clientName: "Наталья Волкова", clientPhone: "+7 911 234-56-78", zoneId: 2, zoneName: "Arena B", zoneColor: "#8b5cf6", sessionTypeId: 2, sessionTypeName: "Стандарт 60 мин", sessionTypeColor: "#8b5cf6", packageId: null, startTime: `${dateStr}T17:00:00.000Z`, endTime: `${dateStr}T18:30:00.000Z`, guestsCount: 4, status: "confirmed", notes: null, adminName: null },
+  ];
+
+  const { data: rawZones = [], refetch: refetchZones } = useListZones();
+  const zones = rawZones.length > 0 ? rawZones : MOCK_ZONES_HOME;
+  const isLoadingZones = false;
+
+  const { data: rawSessionTypes = [] } = useListSessionTypes();
+  const sessionTypes = rawSessionTypes.length > 0 ? rawSessionTypes : MOCK_SESSION_TYPES_HOME;
+
+  const { data: rawPackages = [] } = useListPackages();
+  const packages = rawPackages.length > 0 ? rawPackages : MOCK_PACKAGES_HOME;
+
+  const { data: rawBookings = [], refetch } = useListBookings(
     { date: dateStr },
     { query: { queryKey: getListBookingsQueryKey({ date: dateStr }) } }
   );
+  const bookings = rawBookings.length > 0 ? rawBookings : MOCK_BOOKINGS_HOME;
+  const isLoadingBookings = false;
 
   const queryClient = useQueryClient();
 

@@ -52,7 +52,29 @@ const ZONE_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6"
 
 export default function Settings() {
   const queryClient = useQueryClient();
-  const { data: zones = [], isLoading: isLoadingZones } = useListZones();
+  const MOCK_ZONES_DATA = [
+    { id: 1, name: "Arena A", color: "#6366f1", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+    { id: 2, name: "Arena B", color: "#8b5cf6", capacity: 4, openTime: "10:00", closeTime: "22:00" },
+    { id: 3, name: "VR Solo", color: "#ec4899", capacity: 1, openTime: "10:00", closeTime: "22:00" },
+    { id: 4, name: "Racing Zone", color: "#f59e0b", capacity: 2, openTime: "12:00", closeTime: "22:00" },
+    { id: 5, name: "PS5", color: "#3b82f6", capacity: 2, openTime: "10:00", closeTime: "23:00" },
+    { id: 6, name: "Motion", color: "#10b981", capacity: 1, openTime: "11:00", closeTime: "21:00" },
+  ];
+  const MOCK_SESSION_TYPES_DATA = [
+    { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30 },
+    { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60 },
+    { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90 },
+    { id: 4, name: "Максимальный 120 мин", color: "#10b981", minDuration: 120 },
+  ];
+  const MOCK_PACKAGES_DATA = [
+    { id: 1, name: "День рождения VIP", description: "Всё включено, до 8 чел.", maxGuests: 8, zoneIds: [1, 3] },
+    { id: 2, name: "Корпоратив Standard", description: "Командный тимбилдинг", maxGuests: 20, zoneIds: [1, 2, 4] },
+    { id: 3, name: "Full Park", description: "Весь парк в ваше распоряжение", maxGuests: 50, zoneIds: [1, 2, 3, 4, 5, 6] },
+  ];
+
+  const { data: rawZones = [] } = useListZones();
+  const isLoadingZones = false;
+  const zones = rawZones.length > 0 ? rawZones : MOCK_ZONES_DATA;
 
   // Users state
   const [users, setUsers] = useState(MOCK_USERS);
@@ -73,8 +95,13 @@ export default function Settings() {
   const [salaryPercent, setSalaryPercent] = useState("5");
   const [salaryMixedFixed, setSalaryMixedFixed] = useState("1500");
   const [salaryMixedPercent, setSalaryMixedPercent] = useState("3");
-  const { data: sessionTypes = [], isLoading: isLoadingSessionTypes } = useListSessionTypes();
-  const { data: packages = [], isLoading: isLoadingPackages } = useListPackages();
+  const { data: rawSessionTypes = [] } = useListSessionTypes();
+  const isLoadingSessionTypes = false;
+  const sessionTypes = rawSessionTypes.length > 0 ? rawSessionTypes : MOCK_SESSION_TYPES_DATA;
+
+  const { data: rawPackages = [] } = useListPackages();
+  const isLoadingPackages = false;
+  const packages = rawPackages.length > 0 ? rawPackages : MOCK_PACKAGES_DATA;
 
   // Zone modal
   const [zoneModal, setZoneModal] = useState<{
