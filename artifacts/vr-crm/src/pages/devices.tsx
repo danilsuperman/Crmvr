@@ -1,15 +1,14 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   Plus, Search, Wifi, Battery, Thermometer, Cpu, Clock,
-  CheckCircle2, Circle, AlertTriangle, Loader2, Gamepad2, Users, Filter
+  Gamepad2, Users, Filter
 } from "lucide-react";
 
 const MOCK_DEVICES = [
@@ -66,39 +65,25 @@ const ZONES_GAMES: Record<string, { game: string; multiplayer: boolean; recommen
   ],
 };
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  idle: { label: "Простой", color: "text-muted-foreground" },
-  active: { label: "Активен", color: "text-green-400" },
-  preparing: { label: "Подготовка", color: "text-yellow-400" },
-  offline: { label: "Оффлайн", color: "text-muted-foreground/50" },
-  low_battery: { label: "Слабый заряд", color: "text-orange-400" },
-  error: { label: "Ошибка", color: "text-red-400" },
+const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
+  idle: { label: "Простой", color: "text-muted-foreground", dot: "bg-muted-foreground/40" },
+  active: { label: "Активен", color: "text-green-400", dot: "bg-green-400" },
+  preparing: { label: "Подготовка", color: "text-yellow-400", dot: "bg-yellow-400" },
+  offline: { label: "Оффлайн", color: "text-muted-foreground/40", dot: "bg-muted-foreground/20" },
+  low_battery: { label: "Слабый заряд", color: "text-orange-400", dot: "bg-orange-400" },
+  error: { label: "Ошибка", color: "text-red-400", dot: "bg-red-400" },
 };
 
 export default function Devices() {
+  const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [addOpen, setAddOpen] = useState(false);
-  const [pairingCode, setPairingCode] = useState("");
-  const [pairingStep, setPairingStep] = useState<"code" | "confirm" | "done">("code");
 
   const filtered = MOCK_DEVICES.filter(d => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase()) || d.zone.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "all" || d.status === filterStatus;
     return matchSearch && matchStatus;
   });
-
-  const handleAddDevice = () => {
-    if (pairingStep === "code" && pairingCode.length === 6) {
-      setPairingStep("confirm");
-    } else if (pairingStep === "confirm") {
-      setPairingStep("done");
-    } else {
-      setAddOpen(false);
-      setPairingStep("code");
-      setPairingCode("");
-    }
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -140,7 +125,7 @@ export default function Devices() {
                   <SelectItem value="low_battery">Слабый заряд</SelectItem>
                 </SelectContent>
               </Select>
-              <Button size="sm" className="h-8 gap-1.5 text-xs shrink-0" onClick={() => setAddOpen(true)}>
+              <Button size="sm" className="h-8 gap-1.5 text-xs shrink-0" onClick={() => navigate("/devices/add")}>
                 <Plus className="w-3.5 h-3.5" /> Добавить устройство
               </Button>
             </div>
@@ -155,7 +140,7 @@ export default function Devices() {
                     device.status === "low_battery" ? "border-orange-500/30 bg-orange-500/5" :
                     "border-border/50 bg-card/30"
                   )}>
-                    <div className={cn("w-2 h-2 rounded-full shrink-0", device.status === "active" ? "bg-green-400 animate-pulse" : device.status === "offline" ? "bg-muted-foreground/30" : "bg-yellow-400")} />
+                    <div className={cn("w-2 h-2 rounded-full shrink-0", sc.dot, device.status === "active" && "animate-pulse")} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold truncate">{device.name}</p>
@@ -264,53 +249,6 @@ export default function Devices() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Add device dialog */}
-      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) { setPairingStep("code"); setPairingCode(""); } }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Добавить устройство</DialogTitle>
-          </DialogHeader>
-          {pairingStep === "code" && (
-            <div className="space-y-4 py-2">
-              <p className="text-sm text-muted-foreground">Включите шлем. На экране отобразится код сопряжения. Введите его ниже.</p>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Код сопряжения (6 символов)</Label>
-                <Input
-                  className="h-10 text-center text-xl font-mono tracking-widest"
-                  placeholder="000000"
-                  maxLength={6}
-                  value={pairingCode}
-                  onChange={(e) => setPairingCode(e.target.value.toUpperCase())}
-                />
-              </div>
-              <Button className="w-full" onClick={handleAddDevice} disabled={pairingCode.length !== 6}>
-                Подключить
-              </Button>
-            </div>
-          )}
-          {pairingStep === "confirm" && (
-            <div className="space-y-4 py-2">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
-                <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                <div>
-                  <p className="text-sm font-medium">Подключение к устройству...</p>
-                  <p className="text-xs text-muted-foreground">Код: {pairingCode}</p>
-                </div>
-              </div>
-              <Button className="w-full" onClick={handleAddDevice}>Подтвердить сопряжение</Button>
-            </div>
-          )}
-          {pairingStep === "done" && (
-            <div className="space-y-4 py-2 text-center">
-              <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto" />
-              <p className="text-sm font-medium">Устройство успешно добавлено!</p>
-              <p className="text-xs text-muted-foreground">Шлем появится в списке устройств.</p>
-              <Button className="w-full" onClick={() => { setAddOpen(false); setPairingStep("code"); setPairingCode(""); }}>Готово</Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

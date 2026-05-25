@@ -13,7 +13,9 @@ import EventDetail from "@/pages/event-detail";
 import Settings from "@/pages/settings";
 import Profile from "@/pages/profile";
 import Control from "@/pages/control";
+import DeviceDetail from "@/pages/device-detail";
 import Devices from "@/pages/devices";
+import DeviceAdd from "@/pages/device-add";
 import Analytics from "@/pages/analytics";
 import Registration from "@/pages/registration";
 
@@ -25,7 +27,9 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/control" component={Control} />
+        <Route path="/control/:id" component={DeviceDetail} />
         <Route path="/devices" component={Devices} />
+        <Route path="/devices/add" component={DeviceAdd} />
         <Route path="/clients" component={Clients} />
         <Route path="/clients/:id" component={ClientDetail} />
         <Route path="/events" component={Events} />

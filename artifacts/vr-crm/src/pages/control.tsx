@@ -1,13 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Wifi, Battery, Thermometer, Play, Square, RefreshCw, MessageSquare,
-  Video, VideoOff, Gamepad2, Clock, AlertTriangle, CheckCircle2,
-  Circle, Loader2, ChevronRight, Monitor, X
+  Wifi, Battery, Thermometer, Clock, AlertTriangle, CheckCircle2,
+  Circle, Loader2, Gamepad2, ChevronRight, Monitor
 } from "lucide-react";
 
 type DeviceStatus = "idle" | "active" | "preparing" | "offline" | "low_battery" | "error";
@@ -84,37 +81,19 @@ const MOCK_ZONES: Zone[] = [
   },
 ];
 
-const MOCK_GAMES = [
-  { id: "g1", name: "Beat Saber", version: "1.34.0" },
-  { id: "g2", name: "Superhot VR", version: "2.1.1" },
-  { id: "g3", name: "Pistol Whip", version: "3.0.5" },
-  { id: "g4", name: "Half-Life: Alyx", version: "1.5.0" },
-  { id: "g5", name: "GT7 VR", version: "2.0.0" },
-  { id: "g6", name: "Horizon VR", version: "1.0.0" },
-  { id: "g7", name: "Amusement Park", version: "1.2.3" },
-  { id: "g8", name: "Walkabout Mini Golf", version: "4.1.0" },
-];
-
-const MOCK_SESSIONS = [
-  { date: "25.05.2026 14:30", duration: "45 мин", game: "Beat Saber", errors: "—" },
-  { date: "25.05.2026 13:00", duration: "30 мин", game: "Pistol Whip", errors: "Перегрев (1)" },
-  { date: "25.05.2026 11:20", duration: "60 мин", game: "Half-Life: Alyx", errors: "—" },
-  { date: "24.05.2026 18:00", duration: "30 мин", game: "Superhot VR", errors: "—" },
-];
-
 function formatTimer(seconds: number) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-const statusConfig: Record<DeviceStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  idle: { label: "Простой", color: "text-muted-foreground", icon: <Circle className="w-3 h-3" /> },
-  active: { label: "Активен", color: "text-green-400", icon: <CheckCircle2 className="w-3 h-3" /> },
-  preparing: { label: "Подготовка", color: "text-yellow-400", icon: <Loader2 className="w-3 h-3 animate-spin" /> },
-  offline: { label: "Оффлайн", color: "text-muted-foreground/50", icon: <Circle className="w-3 h-3" /> },
-  low_battery: { label: "Слабый заряд", color: "text-orange-400", icon: <AlertTriangle className="w-3 h-3" /> },
-  error: { label: "Ошибка", color: "text-red-400", icon: <AlertTriangle className="w-3 h-3" /> },
+const statusConfig: Record<DeviceStatus, { label: string; color: string; dot: string }> = {
+  idle: { label: "Простой", color: "text-muted-foreground", dot: "bg-muted-foreground/40" },
+  active: { label: "Активен", color: "text-green-400", dot: "bg-green-400" },
+  preparing: { label: "Подготовка", color: "text-yellow-400", dot: "bg-yellow-400" },
+  offline: { label: "Оффлайн", color: "text-muted-foreground/40", dot: "bg-muted-foreground/20" },
+  low_battery: { label: "Слабый заряд", color: "text-orange-400", dot: "bg-orange-400" },
+  error: { label: "Ошибка", color: "text-red-400", dot: "bg-red-400" },
 };
 
 function DeviceCard({ device, onClick }: { device: Device; onClick: () => void }) {
@@ -125,23 +104,27 @@ function DeviceCard({ device, onClick }: { device: Device; onClick: () => void }
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left p-3 rounded-xl border transition-all hover:border-primary/50 hover:bg-card/60 group",
-        device.status === "active" ? "border-green-500/30 bg-green-500/5" :
-        device.status === "error" ? "border-red-500/30 bg-red-500/5" :
-        device.status === "low_battery" ? "border-orange-500/30 bg-orange-500/5" :
-        "border-border/50 bg-card/30"
+        "w-full text-left p-3 rounded-xl border transition-all hover:scale-[1.01] hover:shadow-lg group cursor-pointer",
+        device.status === "active" ? "border-green-500/30 bg-green-500/5 hover:border-green-500/50" :
+        device.status === "error" ? "border-red-500/30 bg-red-500/5 hover:border-red-500/50" :
+        device.status === "low_battery" ? "border-orange-500/30 bg-orange-500/5 hover:border-orange-500/50" :
+        device.status === "offline" ? "border-border/30 bg-card/10 opacity-60 hover:opacity-80" :
+        "border-border/50 bg-card/30 hover:border-primary/40"
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className={cn("w-2 h-2 rounded-full shrink-0", isOnline ? "bg-green-400" : "bg-muted-foreground/30")} />
+          <div className={cn("w-2 h-2 rounded-full shrink-0", sc.dot, device.status === "active" && "animate-pulse")} />
           <span className="text-xs font-semibold truncate">{device.name}</span>
         </div>
-        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0 mt-0.5" />
+        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-muted-foreground shrink-0 mt-0.5 transition-colors" />
       </div>
 
       <div className={cn("flex items-center gap-1 text-[10px] font-medium mb-2", sc.color)}>
-        {sc.icon}
+        {device.status === "active" && <CheckCircle2 className="w-3 h-3" />}
+        {device.status === "preparing" && <Loader2 className="w-3 h-3 animate-spin" />}
+        {(device.status === "error" || device.status === "low_battery") && <AlertTriangle className="w-3 h-3" />}
+        {(device.status === "idle" || device.status === "offline") && <Circle className="w-3 h-3" />}
         <span>{sc.label}</span>
       </div>
 
@@ -152,16 +135,16 @@ function DeviceCard({ device, onClick }: { device: Device; onClick: () => void }
       )}
 
       {device.sessionTimer !== null && (
-        <p className="text-[10px] text-primary mb-1.5 flex items-center gap-1 font-mono">
+        <p className="text-[10px] text-primary mb-1.5 flex items-center gap-1 font-mono font-bold">
           <Clock className="w-3 h-3 shrink-0" /> {formatTimer(device.sessionTimer)}
         </p>
       )}
 
-      <div className="flex items-center gap-2 mt-1">
-        <span className={cn("flex items-center gap-0.5 text-[10px]", device.battery < 20 ? "text-red-400" : "text-muted-foreground")}>
+      <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-border/30">
+        <span className={cn("flex items-center gap-0.5 text-[10px]", device.battery < 20 ? "text-red-400 font-bold" : "text-muted-foreground")}>
           <Battery className="w-3 h-3" /> {device.battery}%
         </span>
-        <span className={cn("flex items-center gap-0.5 text-[10px]", device.temp > 55 ? "text-red-400" : "text-muted-foreground")}>
+        <span className={cn("flex items-center gap-0.5 text-[10px]", device.temp > 55 ? "text-red-400 font-bold" : "text-muted-foreground")}>
           <Thermometer className="w-3 h-3" /> {device.temp}°C
         </span>
         {isOnline && (
@@ -174,192 +157,9 @@ function DeviceCard({ device, onClick }: { device: Device; onClick: () => void }
   );
 }
 
-function DeviceDetailModal({ device, onClose }: { device: Device; onClose: () => void }) {
-  const [streaming, setStreaming] = useState(false);
-  const [msgOpen, setMsgOpen] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  return (
-    <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <Monitor className="w-4 h-4" />
-          {device.name}
-          <Badge variant="outline" className={cn("ml-1 text-[10px]", statusConfig[device.status].color)}>
-            {statusConfig[device.status].label}
-          </Badge>
-        </DialogTitle>
-      </DialogHeader>
-
-      <Tabs defaultValue="live" className="w-full">
-        <TabsList className="w-full h-8 text-xs">
-          <TabsTrigger value="live" className="flex-1 text-xs">Live Stream</TabsTrigger>
-          <TabsTrigger value="actions" className="flex-1 text-xs">Действия</TabsTrigger>
-          <TabsTrigger value="telemetry" className="flex-1 text-xs">Телеметрия</TabsTrigger>
-          <TabsTrigger value="games" className="flex-1 text-xs">Игры</TabsTrigger>
-          <TabsTrigger value="history" className="flex-1 text-xs">История</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="live" className="mt-3">
-          <div className="relative w-full aspect-video rounded-xl bg-black/80 border border-border/50 flex flex-col items-center justify-center overflow-hidden">
-            {streaming ? (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 to-blue-900/40 animate-pulse" />
-                <div className="relative z-10 text-center">
-                  <div className="w-3 h-3 rounded-full bg-red-500 mx-auto mb-2 animate-pulse" />
-                  <p className="text-xs text-white font-mono">LIVE · {device.name}</p>
-                  {device.game && <p className="text-[10px] text-white/60 mt-1">{device.game}</p>}
-                </div>
-                <div className="absolute bottom-3 right-3 flex gap-1.5">
-                  <Button size="sm" variant="secondary" className="h-7 text-[10px] gap-1">
-                    <X className="w-3 h-3" /> Развернуть
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center">
-                <VideoOff className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Трансляция не активна</p>
-                <Button size="sm" className="mt-3 h-7 text-xs gap-1" onClick={() => setStreaming(true)}>
-                  <Video className="w-3.5 h-3.5" /> Начать трансляцию
-                </Button>
-              </div>
-            )}
-          </div>
-          {streaming && (
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1" onClick={() => setStreaming(false)}>
-                <VideoOff className="w-3.5 h-3.5" /> Остановить
-              </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1">
-                HD
-              </Button>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="actions" className="mt-3 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="h-10 text-xs gap-1.5 justify-start">
-              <Play className="w-3.5 h-3.5 text-green-400" /> Запустить игру
-            </Button>
-            <Button variant="outline" className="h-10 text-xs gap-1.5 justify-start">
-              <Square className="w-3.5 h-3.5 text-red-400" /> Остановить игру
-            </Button>
-            <Button variant="outline" className="h-10 text-xs gap-1.5 justify-start">
-              <RefreshCw className="w-3.5 h-3.5 text-yellow-400" /> Перезагрузить
-            </Button>
-            <Button variant="outline" className="h-10 text-xs gap-1.5 justify-start">
-              <Monitor className="w-3.5 h-3.5 text-blue-400" /> Открыть Lobby
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 text-xs gap-1.5 justify-start"
-              onClick={() => setMsgOpen(true)}
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-purple-400" /> Сообщение в шлем
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 text-xs gap-1.5 justify-start"
-              onClick={() => setStreaming(!streaming)}
-            >
-              {streaming ? <VideoOff className="w-3.5 h-3.5 text-red-400" /> : <Video className="w-3.5 h-3.5 text-green-400" />}
-              {streaming ? "Стоп трансляция" : "Старт трансляция"}
-            </Button>
-          </div>
-
-          {msgOpen && (
-            <div className="mt-3 p-3 rounded-lg bg-muted/30 border border-border/50 space-y-2">
-              <p className="text-xs font-medium">Сообщение игроку</p>
-              <input
-                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
-                placeholder="Введите сообщение..."
-                value={msg}
-                onChange={(e) => setMsg(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button size="sm" className="h-7 text-xs flex-1" onClick={() => { setMsgOpen(false); setMsg(""); }}>
-                  Отправить
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setMsgOpen(false)}>
-                  Отмена
-                </Button>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="telemetry" className="mt-3">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Заряд батареи", value: `${device.battery}%`, icon: Battery, color: device.battery < 20 ? "text-red-400" : "text-green-400" },
-              { label: "Температура", value: `${device.temp}°C`, icon: Thermometer, color: device.temp > 55 ? "text-red-400" : "text-muted-foreground" },
-              { label: "WiFi сигнал", value: `${device.wifi}%`, icon: Wifi, color: "text-blue-400" },
-              { label: "Текущее приложение", value: device.game || "—", icon: Gamepad2, color: "text-purple-400" },
-            ].map((item) => (
-              <div key={item.label} className="p-3 rounded-xl bg-muted/20 border border-border/50">
-                <div className={cn("flex items-center gap-1.5 mb-1", item.color)}>
-                  <item.icon className="w-3.5 h-3.5" />
-                  <span className="text-[10px] text-muted-foreground">{item.label}</span>
-                </div>
-                <p className="text-sm font-semibold">{item.value}</p>
-              </div>
-            ))}
-            <div className="col-span-2 p-3 rounded-xl bg-muted/20 border border-border/50">
-              <p className="text-[10px] text-muted-foreground mb-1">Статус шлема</p>
-              <div className={cn("flex items-center gap-1.5 text-sm font-semibold", statusConfig[device.status].color)}>
-                {statusConfig[device.status].icon}
-                {statusConfig[device.status].label}
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="games" className="mt-3">
-          <div className="space-y-1.5">
-            {MOCK_GAMES.map((g) => (
-              <div key={g.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/20 border border-border/50 hover:border-primary/30 transition-colors">
-                <div className="flex items-center gap-2">
-                  <Gamepad2 className="w-4 h-4 text-primary/60" />
-                  <div>
-                    <p className="text-xs font-medium">{g.name}</p>
-                    <p className="text-[10px] text-muted-foreground">v{g.version}</p>
-                  </div>
-                </div>
-                <Button size="sm" className="h-6 text-[10px] gap-1 px-2">
-                  <Play className="w-2.5 h-2.5" /> Запустить
-                </Button>
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="history" className="mt-3">
-          <div className="space-y-1.5">
-            {MOCK_SESSIONS.map((s, i) => (
-              <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/20 border border-border/50">
-                <div>
-                  <p className="text-xs font-medium">{s.game}</p>
-                  <p className="text-[10px] text-muted-foreground">{s.date} · {s.duration}</p>
-                </div>
-                {s.errors !== "—" ? (
-                  <Badge variant="destructive" className="text-[10px]">{s.errors}</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] text-green-400 border-green-500/30">OK</Badge>
-                )}
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-    </DialogContent>
-  );
-}
-
 export default function Control() {
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [zones] = useState(MOCK_ZONES);
+  const [, navigate] = useLocation();
+  const zones = MOCK_ZONES;
 
   const totalDevices = zones.flatMap(z => z.devices).length;
   const activeDevices = zones.flatMap(z => z.devices).filter(d => d.status === "active").length;
@@ -369,7 +169,7 @@ export default function Control() {
     <div className="flex flex-col h-full">
       <header className="h-14 border-b border-border/50 flex items-center px-4 md:px-6 bg-card/50 backdrop-blur-sm shrink-0 gap-4">
         <h1 className="text-lg font-bold font-mono">Центр управления</h1>
-        <div className="flex items-center gap-3 ml-auto">
+        <div className="flex items-center gap-3 ml-auto flex-wrap">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span>{activeDevices} активных</span>
@@ -396,18 +196,16 @@ export default function Control() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
               {zone.devices.map((device) => (
-                <DeviceCard key={device.id} device={device} onClick={() => setSelectedDevice(device)} />
+                <DeviceCard
+                  key={device.id}
+                  device={device}
+                  onClick={() => navigate(`/control/${device.id}`)}
+                />
               ))}
             </div>
           </div>
         ))}
       </div>
-
-      <Dialog open={!!selectedDevice} onOpenChange={(o) => !o && setSelectedDevice(null)}>
-        {selectedDevice && (
-          <DeviceDetailModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />
-        )}
-      </Dialog>
     </div>
   );
 }
