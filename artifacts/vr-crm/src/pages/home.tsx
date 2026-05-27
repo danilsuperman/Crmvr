@@ -157,6 +157,7 @@ export default function Home() {
     1: 1200,  // Стандарт 30 мин
     2: 2000,  // Стандарт 60 мин
     3: 3500,  // VIP 90 мин
+    4: 4800,  // Максимальный 120 мин
   };
 
   // Flat package prices (₽)
@@ -181,6 +182,19 @@ export default function Home() {
 
   useListSessionTypes();
   const [sessionTypes] = useLocalStorage("vrpark_session_types", MOCK_SESSION_TYPES_HOME);
+
+  // Zone constructor meta — which session types are available per zone
+  const [zoneConstructorMeta] = useLocalStorage<Record<string, { sessionTypeIds?: number[] }>>(
+    "vrpark_zone_constructor_meta", {}
+  );
+
+  // Returns session types available for a given zone id.
+  // Falls back to all session types if no assignment is configured.
+  const sessionTypesForZone = (zoneId: number | string) => {
+    const ids = zoneConstructorMeta[String(zoneId)]?.sessionTypeIds;
+    if (!ids || ids.length === 0) return sessionTypes;
+    return sessionTypes.filter(st => ids.includes(st.id));
+  };
 
   useListPackages();
   const [packages] = useLocalStorage("vrpark_packages", MOCK_PACKAGES_HOME);
@@ -963,11 +977,14 @@ export default function Home() {
                                 <SelectValue placeholder="Выбрать сеанс" />
                               </SelectTrigger>
                               <SelectContent>
-                                {sessionTypes.map(st => (
+                                {sessionTypesForZone(zid).map(st => (
                                   <SelectItem key={st.id} value={st.id.toString()} className="text-xs">
                                     {st.name} — {(SESSION_PRICE[st.id] ?? 0).toLocaleString("ru")} ₽/чел.
                                   </SelectItem>
                                 ))}
+                                {sessionTypesForZone(zid).length === 0 && (
+                                  <div className="px-3 py-2 text-xs text-muted-foreground">Нет доступных сеансов</div>
+                                )}
                               </SelectContent>
                             </Select>
                           </div>
@@ -984,7 +1001,7 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Зона</Label>
-                  <Select value={form.zoneId} onValueChange={(v) => setForm((f) => ({ ...f, zoneId: v }))}>
+                  <Select value={form.zoneId} onValueChange={(v) => setForm((f) => ({ ...f, zoneId: v, sessionTypeId: "" }))}>
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Выберите зону" />
                     </SelectTrigger>
@@ -1004,11 +1021,14 @@ export default function Home() {
                       <SelectValue placeholder="Выберите тип" />
                     </SelectTrigger>
                     <SelectContent>
-                      {sessionTypes.map((st) => (
+                      {sessionTypesForZone(form.zoneId).map((st) => (
                         <SelectItem key={st.id} value={st.id.toString()}>
-                          {st.name}
+                          {st.name} — {(SESSION_PRICE[st.id] ?? 0).toLocaleString("ru")} ₽/чел.
                         </SelectItem>
                       ))}
+                      {sessionTypesForZone(form.zoneId).length === 0 && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Нет доступных сеансов для этой зоны</div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
