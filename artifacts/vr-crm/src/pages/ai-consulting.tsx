@@ -200,6 +200,67 @@ export default function AiConsulting() {
 
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-5 pb-20 md:pb-6">
 
+        {/* AI Chat — top of page */}
+        <Card className="bg-card/30 border-border/50">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-sky-400" /> Спросить AI-консультанта
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-3">
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {messages.map((msg, i) => (
+                <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+                  {msg.role === "ai" && (
+                    <div className="w-6 h-6 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0 mr-2 mt-0.5">
+                      <Brain className="w-3 h-3 text-violet-400" />
+                    </div>
+                  )}
+                  <div className={cn(
+                    "max-w-[75%] rounded-2xl px-3 py-2 text-[11px] leading-relaxed whitespace-pre-line",
+                    msg.role === "ai"
+                      ? "bg-muted/30 border border-border/30 text-foreground"
+                      : "bg-primary text-primary-foreground"
+                  )}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {typing && (
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0">
+                    <Brain className="w-3 h-3 text-violet-400" />
+                  </div>
+                  <div className="bg-muted/30 border border-border/30 rounded-2xl px-3 py-2 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 h-9 rounded-lg border border-border/50 bg-muted/10 px-3 text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+                placeholder="Как увеличить загрузку в среду?"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && sendMessage()}
+              />
+              <Button size="sm" className="h-9 w-9 p-0 shrink-0" onClick={sendMessage} disabled={typing || !chatInput.trim()}>
+                <Send className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {["Что делать в тихие часы?", "Когда пик?", "Запустить акцию", "Анализ за неделю", "Что улучшить?"].map(q => (
+                <button key={q} onClick={() => { setChatInput(q); }} className="text-[10px] px-2 py-1 rounded-full border border-border/40 text-muted-foreground hover:bg-muted/20 transition-colors">
+                  {q}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* KPI row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
@@ -397,66 +458,6 @@ export default function AiConsulting() {
               </CardContent>
             </Card>
 
-            {/* AI Chat */}
-            <Card className="bg-card/30 border-border/50">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-sky-400" /> Спросить AI
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-3">
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {messages.map((msg, i) => (
-                    <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-                      {msg.role === "ai" && (
-                        <div className="w-6 h-6 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                          <Brain className="w-3 h-3 text-violet-400" />
-                        </div>
-                      )}
-                      <div className={cn(
-                        "max-w-[85%] rounded-2xl px-3 py-2 text-[11px] leading-relaxed whitespace-pre-line",
-                        msg.role === "ai"
-                          ? "bg-muted/30 border border-border/30 text-foreground"
-                          : "bg-primary text-primary-foreground"
-                      )}>
-                        {msg.text}
-                      </div>
-                    </div>
-                  ))}
-                  {typing && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0">
-                        <Brain className="w-3 h-3 text-violet-400" />
-                      </div>
-                      <div className="bg-muted/30 border border-border/30 rounded-2xl px-3 py-2 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 h-8 rounded-lg border border-border/50 bg-muted/10 px-3 text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
-                    placeholder="Как увеличить загрузку в среду?"
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && sendMessage()}
-                  />
-                  <Button size="sm" className="h-8 w-8 p-0 shrink-0" onClick={sendMessage} disabled={typing || !chatInput.trim()}>
-                    <Send className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {["Что делать в тихие часы?", "Когда пик?", "Запустить акцию"].map(q => (
-                    <button key={q} onClick={() => { setChatInput(q); }} className="text-[10px] px-2 py-1 rounded-full border border-border/40 text-muted-foreground hover:bg-muted/20 transition-colors">
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

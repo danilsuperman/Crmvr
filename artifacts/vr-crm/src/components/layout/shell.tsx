@@ -1,5 +1,6 @@
 import { Sidebar } from "./sidebar";
 import { BottomNav } from "./bottom-nav";
+import { ChatWidget } from "@/components/chat-widget/chat-widget";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <BottomNav />
+      <ChatWidget />
     </div>
   );
 }

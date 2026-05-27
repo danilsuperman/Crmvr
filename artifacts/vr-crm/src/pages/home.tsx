@@ -26,6 +26,9 @@ import {
   Link2,
   CreditCard,
   Zap,
+  Bell,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -93,6 +96,10 @@ interface BookingFormState {
   customEvent: boolean;           // true = build unique event manually
   customEventZoneIds: number[];   // zones chosen for custom event
   zoneSessionTypes: Record<number, string>; // zoneId → sessionTypeId
+  reminderBefore24h: boolean;
+  reminderBefore2h: boolean;
+  reminderBefore30m: boolean;
+  paidAmount: string;
 }
 
 type Booking = {
@@ -113,6 +120,8 @@ type Booking = {
   status: string;
   notes: string | null;
   adminName: string | null;
+  paidAmount?: number;
+  reminders?: { before24h?: boolean; before2h?: boolean; before30m?: boolean };
 };
 
 const EMPTY_FORM: BookingFormState = {
@@ -132,7 +141,80 @@ const EMPTY_FORM: BookingFormState = {
   customEvent: false,
   customEventZoneIds: [],
   zoneSessionTypes: {},
+  reminderBefore24h: false,
+  reminderBefore2h: true,
+  reminderBefore30m: false,
+  paidAmount: "",
 };
+
+function SendMessageForm({
+  clientName, clientPhone, date, startTime, endTime, zoneName,
+  payLink, prepayAmount, total, onClose,
+}: {
+  clientName: string; clientPhone: string; date: string;
+  startTime: string; endTime: string; zoneName: string;
+  payLink?: string; prepayAmount: number; total: number; onClose: () => void;
+}) {
+  const dateStr = date ? format(new Date(date + "T12:00:00"), "d MMMM", { locale: ru }) : "";
+  const defaultMsg = [
+    `Здравствуйте, ${clientName || "Гость"}! 👋`,
+    ``,
+    `Подтверждаем вашу бронь в VR Park:`,
+    `📅 ${dateStr}, ${startTime}–${endTime}`,
+    zoneName ? `🎮 Зона: ${zoneName}` : null,
+    total > 0 ? `💰 Сумма: ${total.toLocaleString("ru")} ₽` : null,
+    prepayAmount > 0 ? `💳 Предоплата: ${prepayAmount.toLocaleString("ru")} ₽` : null,
+    payLink ? `` : null,
+    payLink ? `Ссылка для оплаты:` : null,
+    payLink ? payLink : null,
+    ``,
+    `Ждём вас! До встречи 🚀`,
+  ].filter(l => l !== null).join("\n");
+
+  const [msg, setMsg] = useState(defaultMsg);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="space-y-3 pt-2">
+      {clientPhone && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/8 border border-sky-500/20">
+          <span className="text-[10px] text-muted-foreground">Получатель:</span>
+          <span className="text-sm font-semibold">{clientName}</span>
+          <span className="text-xs text-muted-foreground font-mono">{clientPhone}</span>
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Текст сообщения</Label>
+        <textarea
+          className="w-full text-sm border border-border/50 rounded-lg p-2.5 bg-card/30 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
+          rows={10}
+          value={msg}
+          onChange={e => setMsg(e.target.value)}
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1 h-9 text-xs" onClick={onClose}>Закрыть</Button>
+        <Button
+          className="flex-1 h-9 text-xs gap-1.5"
+          onClick={handleCopy}
+        >
+          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? "Скопировано!" : "Копировать текст"}
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground text-center">
+        Отправьте скопированный текст клиенту через WhatsApp, Telegram или SMS
+      </p>
+    </div>
+  );
+}
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -300,6 +382,7 @@ export default function Home() {
   const [customPrepay, setCustomPrepay] = useState("");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [linkGenerating, setLinkGenerating] = useState(false);
+  const [sendMsgOpen, setSendMsgOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BookingFormState>(EMPTY_FORM);
 
@@ -342,6 +425,13 @@ export default function Home() {
       adminName: b.adminName || "",
       isEvent: b.status === "event",
       packageId: b.packageId?.toString() || "",
+      customEvent: false,
+      customEventZoneIds: [],
+      zoneSessionTypes: {},
+      reminderBefore24h: (b as any).reminders?.before24h ?? false,
+      reminderBefore2h: (b as any).reminders?.before2h ?? true,
+      reminderBefore30m: (b as any).reminders?.before30m ?? false,
+      paidAmount: (b as any).paidAmount?.toString() ?? "",
     });
     setIsModalOpen(true);
   }, []);
@@ -387,6 +477,8 @@ export default function Home() {
         status: form.isEvent ? "event" : (form.status as Booking["status"]),
         notes: form.notes || null,
         adminName: form.adminName || null,
+        paidAmount: form.paidAmount ? Number(form.paidAmount) : 0,
+        reminders: { before24h: form.reminderBefore24h, before2h: form.reminderBefore2h, before30m: form.reminderBefore30m },
       };
     };
 
@@ -797,6 +889,11 @@ export default function Home() {
                           {booking.durationSlots > 2 && booking.clientPhone && (
                             <div className="text-[10px] opacity-60 mt-0.5 truncate">
                               {booking.clientPhone}
+                            </div>
+                          )}
+                          {(booking as any).paidAmount > 0 && (
+                            <div className="text-[10px] text-emerald-400 mt-0.5 font-semibold">
+                              ✓ {(booking as any).paidAmount.toLocaleString("ru")} ₽
                             </div>
                           )}
                         </div>
@@ -1257,6 +1354,65 @@ export default function Home() {
               />
             </div>
 
+            {/* Reminders */}
+            <div className="space-y-2 py-2 px-3 rounded-lg bg-muted/10 border border-border/30">
+              <div className="flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5 text-amber-400" />
+                <p className="text-xs font-semibold">Напоминания клиенту</p>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                {[
+                  { key: "reminderBefore24h" as const, label: "За 24 часа" },
+                  { key: "reminderBefore2h" as const, label: "За 2 часа" },
+                  { key: "reminderBefore30m" as const, label: "За 30 минут" },
+                ].map(r => (
+                  <label key={r.key} className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={form[r.key]}
+                      onChange={e => setForm(f => ({ ...f, [r.key]: e.target.checked }))}
+                      className="w-3.5 h-3.5 accent-primary rounded"
+                    />
+                    <span className="text-xs text-muted-foreground">{r.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Paid amount */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Внесено оплаты (₽)</Label>
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={form.paidAmount}
+                  onChange={e => setForm(f => ({ ...f, paidAmount: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-end pb-1">
+                {form.paidAmount && Number(form.paidAmount) > 0 ? (
+                  <span className="text-xs font-semibold text-emerald-400">✓ Оплачено: {Number(form.paidAmount).toLocaleString("ru")} ₽</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground/60">Не оплачено</span>
+                )}
+              </div>
+            </div>
+
+            {/* Send message */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs gap-1.5 border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
+              onClick={() => setSendMsgOpen(true)}
+              disabled={!form.clientName.trim()}
+            >
+              <MessageSquare className="w-3.5 h-3.5" /> Отправить сообщение клиенту
+            </Button>
+
             {/* ── Price summary block ───────────────────────────────── */}
             {bookingCalc && (
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
@@ -1443,6 +1599,29 @@ export default function Home() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Message Dialog */}
+      <Dialog open={sendMsgOpen} onOpenChange={setSendMsgOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-sky-400" /> Сообщение клиенту
+            </DialogTitle>
+          </DialogHeader>
+          <SendMessageForm
+            clientName={form.clientName}
+            clientPhone={form.clientPhone}
+            date={form.date}
+            startTime={form.startTime}
+            endTime={form.endTime}
+            zoneName={zones.find(z => z.id === Number(form.zoneId))?.name ?? ""}
+            payLink={generatedLink ?? undefined}
+            prepayAmount={prepayAmount}
+            total={bookingCalc?.total ?? 0}
+            onClose={() => setSendMsgOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 

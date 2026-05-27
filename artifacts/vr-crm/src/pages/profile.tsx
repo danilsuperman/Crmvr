@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { User, Lock, CreditCard, Building2, Camera } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Lock, CreditCard, Building2, Camera, Sun, Moon, Palette } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,16 @@ export default function Profile() {
     autoPayment: false,
   });
   const [paymentSaved, setPaymentSaved] = useState(false);
+
+  const [theme, setTheme] = useLocalStorage<"dark" | "light">("vrpark_theme", "dark");
+
+  useEffect(() => {
+    if (theme === "light") {
+      document.documentElement.classList.remove("dark");
+    } else {
+      document.documentElement.classList.add("dark");
+    }
+  }, [theme]);
 
   const fullName = [profile.surname, profile.firstName, profile.patronymic].filter(Boolean).join(" ") || "—";
 
@@ -80,6 +90,9 @@ export default function Profile() {
               </TabsTrigger>
               <TabsTrigger value="payment" className="text-xs flex items-center gap-1.5">
                 <CreditCard className="w-3 h-3" /> Платежи
+              </TabsTrigger>
+              <TabsTrigger value="appearance" className="text-xs flex items-center gap-1.5">
+                <Palette className="w-3 h-3" /> Оформление
               </TabsTrigger>
             </TabsList>
 
@@ -274,6 +287,77 @@ export default function Profile() {
               <Button className="w-full h-8 text-xs" onClick={() => { setPaymentSaved(true); toast.success("Платёжные данные сохранены"); setTimeout(() => setPaymentSaved(false), 2000); }}>
                 {paymentSaved ? "Сохранено!" : "Сохранить платёжные данные"}
               </Button>
+            </TabsContent>
+
+            {/* Appearance */}
+            <TabsContent value="appearance" className="space-y-4">
+              <Card className="bg-card/30 border-border/50">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm">Тема оформления</CardTitle>
+                  <CardDescription className="text-xs">Выберите светлую или тёмную тему интерфейса</CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Dark */}
+                    <button
+                      onClick={() => { setTheme("dark"); toast.success("Тёмная тема включена"); }}
+                      className={cn(
+                        "relative rounded-xl border-2 overflow-hidden transition-all",
+                        theme === "dark" ? "border-primary shadow-lg shadow-primary/20" : "border-border/50 hover:border-border"
+                      )}
+                    >
+                      <div className="h-24 bg-zinc-900 flex flex-col p-2 gap-1">
+                        <div className="h-2 w-3/4 rounded-full bg-zinc-700" />
+                        <div className="flex gap-1 flex-1">
+                          <div className="w-6 bg-zinc-800 rounded" />
+                          <div className="flex-1 bg-zinc-800/50 rounded" />
+                        </div>
+                        <div className="h-1.5 w-1/2 rounded-full bg-indigo-500/60" />
+                      </div>
+                      <div className={cn("p-2 text-center", theme === "dark" ? "bg-primary/10" : "bg-muted/30")}>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Moon className="w-3 h-3" />
+                          <span className="text-xs font-semibold">Тёмная</span>
+                        </div>
+                        {theme === "dark" && (
+                          <span className="text-[10px] text-primary">Активна</span>
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Light */}
+                    <button
+                      onClick={() => { setTheme("light"); toast.success("Светлая тема включена"); }}
+                      className={cn(
+                        "relative rounded-xl border-2 overflow-hidden transition-all",
+                        theme === "light" ? "border-primary shadow-lg shadow-primary/20" : "border-border/50 hover:border-border"
+                      )}
+                    >
+                      <div className="h-24 bg-gray-50 flex flex-col p-2 gap-1">
+                        <div className="h-2 w-3/4 rounded-full bg-gray-200" />
+                        <div className="flex gap-1 flex-1">
+                          <div className="w-6 bg-white rounded border border-gray-200" />
+                          <div className="flex-1 bg-gray-100 rounded" />
+                        </div>
+                        <div className="h-1.5 w-1/2 rounded-full bg-indigo-400/70" />
+                      </div>
+                      <div className={cn("p-2 text-center", theme === "light" ? "bg-primary/10" : "bg-muted/30")}>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Sun className="w-3 h-3" />
+                          <span className="text-xs font-semibold">Светлая</span>
+                        </div>
+                        {theme === "light" && (
+                          <span className="text-[10px] text-primary">Активна</span>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    Настройка сохраняется автоматически
+                  </p>
+                </CardContent>
+              </Card>
             </TabsContent>
 
           </Tabs>
