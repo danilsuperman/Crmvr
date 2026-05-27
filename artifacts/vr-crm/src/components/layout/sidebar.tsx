@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { BookOpen, Users, Settings, User, Cpu, Monitor, LayoutTemplate, BarChart3, Globe, ChevronDown, Plus, X, Camera } from "lucide-react";
+import { BookOpen, Users, Settings, User, Cpu, Monitor, LayoutTemplate, BarChart3, Globe, ChevronDown, Plus, X, Camera, MessageSquare } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/store";
@@ -24,6 +24,7 @@ const navItems = [
   { href: "/devices", icon: Cpu, label: "Устройства" },
   { href: "/clients", icon: Users, label: "Клиенты" },
   { href: "/analytics", icon: BarChart3, label: "Аналитика" },
+  { href: "/inbox", icon: MessageSquare, label: "Сообщения" },
   { href: "/cameras", icon: Camera, label: "Камеры" },
   { href: "/registration", icon: LayoutTemplate, label: "Конструктор" },
   { href: "/settings", icon: Settings, label: "Настройки" },

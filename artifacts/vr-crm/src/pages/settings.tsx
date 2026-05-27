@@ -163,6 +163,10 @@ export default function Settings() {
   });
   const [payApiKeys, setPayApiKeys] = useState<Record<string, { key: string; secret: string; merchant: string }>>({});
   const [openProvider, setOpenProvider] = useState<string | null>(null);
+  const [channelSettings, setChannelSettings] = useLocalStorage("vrpark_channel_settings", {
+    connected: [] as string[],
+  });
+  const [channelOpen, setChannelOpen] = useState<string | null>(null);
 
   // Zone modal
   const [zoneModal, setZoneModal] = useState<{
@@ -261,6 +265,7 @@ export default function Settings() {
             <TabsTrigger value="sms" className="text-xs">SMS</TabsTrigger>
             <TabsTrigger value="salary" className="text-xs">Зарплата</TabsTrigger>
             <TabsTrigger value="system" className="text-xs">Система</TabsTrigger>
+            <TabsTrigger value="channels" className="text-xs flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Каналы</TabsTrigger>
             <TabsTrigger value="payments" className="text-xs flex items-center gap-1"><CreditCard className="w-3 h-3" /> Оплаты</TabsTrigger>
             <TabsTrigger value="tariff" className="text-xs flex items-center gap-1"><Star className="w-3 h-3" /> Тариф</TabsTrigger>
           </TabsList>
@@ -720,6 +725,151 @@ export default function Settings() {
               <div className="px-6 pb-6">
                 <p className="text-sm text-muted-foreground">Рабочие часы и глобальные настройки — скоро.</p>
               </div>
+            </Card>
+          </TabsContent>
+
+          {/* Channels tab */}
+          <TabsContent value="channels" className="space-y-5">
+            {/* Provider cards */}
+            <div>
+              <h2 className="text-sm font-semibold mb-1">Мессенджеры и каналы</h2>
+              <p className="text-xs text-muted-foreground mb-4">Подключите мессенджеры для единого Inbox</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { id: "telegram",  label: "Telegram",   icon: "TG", color: "text-sky-400 bg-sky-500/10 border-sky-500/20",      desc: "Бот через token + webhook", fields: ["Bot Token", "Webhook URL"] },
+                  { id: "whatsapp",  label: "WhatsApp",   icon: "WA", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", desc: "Meta Cloud API — номер + токен", fields: ["Phone ID", "Access Token"] },
+                  { id: "instagram", label: "Instagram",  icon: "IG", color: "text-pink-400 bg-pink-500/10 border-pink-500/20",    desc: "Business account + Meta разрешения", fields: ["App ID", "Access Token"] },
+                  { id: "viber",     label: "Viber",      icon: "VI", color: "text-violet-400 bg-violet-500/10 border-violet-500/20", desc: "API ключ + webhook", fields: ["API Key", "Webhook URL"] },
+                  { id: "max",       label: "MAX",        icon: "MX", color: "text-orange-400 bg-orange-500/10 border-orange-500/20", desc: "Маркетплейс МТС — ключ + webhook", fields: ["API Key", "Webhook URL"] },
+                  { id: "webchat",   label: "Web Chat",   icon: "WC", color: "text-blue-400 bg-blue-500/10 border-blue-500/20",    desc: "Встраиваемый виджет на сайт", fields: ["Widget ID", "Domain"] },
+                ].map(ch => {
+                  const connected = channelSettings.connected.includes(ch.id);
+                  const expanded = channelOpen === ch.id;
+                  return (
+                    <div key={ch.id} className={cn("rounded-xl border transition-all", connected ? "border-emerald-500/30 bg-emerald-500/5" : "border-border/50 bg-card/20")}>
+                      <div className="flex items-center gap-3 p-3">
+                        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs border shrink-0", ch.color)}>{ch.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold">{ch.label}</p>
+                            {connected && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">подключено</span>}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">{ch.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {connected && (
+                            <button onClick={() => setChannelOpen(expanded ? null : ch.id)} className="text-[10px] px-2 py-1 rounded-lg border border-border/50 hover:bg-muted/20 text-muted-foreground">
+                              {expanded ? "Скрыть" : "Настройки"}
+                            </button>
+                          )}
+                          <Switch checked={connected} onCheckedChange={() => setChannelSettings(s => ({
+                            ...s,
+                            connected: s.connected.includes(ch.id) ? s.connected.filter(x => x !== ch.id) : [...s.connected, ch.id],
+                          }))} />
+                        </div>
+                      </div>
+                      {expanded && connected && (
+                        <div className="border-t border-border/30 p-3 space-y-2">
+                          {ch.fields.map(f => (
+                            <div key={f} className="space-y-1">
+                              <Label className="text-[10px]">{f}</Label>
+                              <Input className="h-7 text-xs font-mono" placeholder={f === "Bot Token" ? "123456:AABBCCddee..." : f === "Access Token" ? "EAABsbCs..." : "..."} />
+                            </div>
+                          ))}
+                          <Button size="sm" className="h-7 text-xs w-full" onClick={() => toast.success(`${ch.label} — подключение проверено ✓`)}>
+                            Тест подключения
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Routing rules */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Zap className="w-4 h-4" /> Маршрутизация диалогов</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                {[
+                  { channel: "Instagram", manager: "Менеджер 1" },
+                  { channel: "WhatsApp",  manager: "Менеджер 2" },
+                  { channel: "Telegram",  manager: "Общий чат" },
+                ].map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 bg-card/20">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-semibold">{r.channel}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="text-primary font-medium">{r.manager}</span>
+                      </div>
+                    </div>
+                    <button className="text-muted-foreground hover:text-foreground"><Pencil className="w-3 h-3" /></button>
+                    <button className="text-muted-foreground hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                  </div>
+                ))}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1">
+                  <Plus className="w-3 h-3" /> Добавить правило
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Auto-rules */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Bot className="w-4 h-4 text-violet-400" /> Автоматические правила</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                {[
+                  { trigger: "Сообщение содержит «цена»", action: "Тег «горячий лид»", active: true },
+                  { trigger: "Нет ответа 10 минут", action: "Уведомить администратора", active: true },
+                  { trigger: "Ночное время (22:00–9:00)", action: "Автоответ с графиком работы", active: false },
+                  { trigger: "Новый диалог", action: "Приветственное сообщение", active: true },
+                ].map((rule, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 bg-card/20">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{rule.trigger}</p>
+                      <p className="text-[10px] text-muted-foreground">→ {rule.action}</p>
+                    </div>
+                    <Switch checked={rule.active} onCheckedChange={() => {}} />
+                  </div>
+                ))}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1">
+                  <Plus className="w-3 h-3" /> Добавить правило
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Templates */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm">Шаблоны сообщений</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                {[
+                  { name: "Приветствие", text: "Здравствуйте! Добро пожаловать в VR Park 🎮 Чем могу помочь?" },
+                  { name: "Прайс", text: "Наши тарифы: 30 мин — 1200₽/чел, 60 мин — 2000₽/чел, VIP 90 мин — 3500₽/чел." },
+                  { name: "Бронирование", text: "Для бронирования укажите дату, время и количество гостей." },
+                  { name: "Акция", text: "🎉 Скидка 15% в будни с 10:00 до 14:00 — только по предоплате онлайн!" },
+                  { name: "FAQ — возраст", text: "Минимальный возраст для VR — 7 лет. Дети до 14 лет — только с родителями." },
+                ].map((t, i) => (
+                  <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg border border-border/40 bg-card/20">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-primary">{t.name}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{t.text}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button className="text-muted-foreground hover:text-foreground"><Pencil className="w-3 h-3" /></button>
+                      <button className="text-muted-foreground hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                  </div>
+                ))}
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1">
+                  <Plus className="w-3 h-3" /> Добавить шаблон
+                </Button>
+              </CardContent>
             </Card>
           </TabsContent>
 
