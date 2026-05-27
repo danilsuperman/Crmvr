@@ -15,6 +15,8 @@ import { useLocalStorage } from "@/lib/store";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Plus,
   RefreshCw,
   LayoutGrid,
@@ -29,6 +31,7 @@ import {
   Bell,
   MessageSquare,
   Send,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,13 +98,17 @@ interface BookingFormState {
   adminName: string;
   isEvent: boolean;
   packageId: string;
-  customEvent: boolean;           // true = build unique event manually
-  customEventZoneIds: number[];   // zones chosen for custom event
-  zoneSessionTypes: Record<number, string>; // zoneId → sessionTypeId
+  customEvent: boolean;
+  customEventZoneIds: number[];
+  zoneSessionTypes: Record<number, string>;
   reminderBefore24h: boolean;
   reminderBefore2h: boolean;
   reminderBefore30m: boolean;
   paidAmount: string;
+  clientEmail: string;
+  clientTelegram: string;
+  clientBirthday: string;
+  clientDetailNotes: string;
 }
 
 type Booking = {
@@ -147,6 +154,10 @@ const EMPTY_FORM: BookingFormState = {
   reminderBefore2h: true,
   reminderBefore30m: false,
   paidAmount: "",
+  clientEmail: "",
+  clientTelegram: "",
+  clientBirthday: "",
+  clientDetailNotes: "",
 };
 
 function SendMessageForm({
@@ -379,6 +390,7 @@ export default function Home() {
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showClientDetails, setShowClientDetails] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [prepayPercent, setPrepayPercent] = useState(30);
   const [customPrepay, setCustomPrepay] = useState("");
@@ -1309,6 +1321,69 @@ export default function Home() {
                   onChange={(e) => setForm((f) => ({ ...f, guestsCount: e.target.value }))}
                 />
               </div>
+            </div>
+
+            {/* Detailed client info toggle */}
+            <div className="rounded-lg border border-border/40 bg-muted/5 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowClientDetails(v => !v)}
+                className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/10 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold">Подробная информация о клиенте</span>
+                  {(form.clientEmail || form.clientTelegram || form.clientBirthday || form.clientDetailNotes) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  )}
+                </div>
+                {showClientDetails
+                  ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                  : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                }
+              </button>
+              {showClientDetails && (
+                <div className="px-3 pb-3 space-y-2.5 border-t border-border/30 pt-3">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Email</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="email@example.com"
+                        value={form.clientEmail}
+                        onChange={e => setForm(f => ({ ...f, clientEmail: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Telegram</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="@username"
+                        value={form.clientTelegram}
+                        onChange={e => setForm(f => ({ ...f, clientTelegram: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Дата рождения</Label>
+                    <Input
+                      className="h-8 text-xs"
+                      placeholder="например: 15 июля 1990"
+                      value={form.clientBirthday}
+                      onChange={e => setForm(f => ({ ...f, clientBirthday: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Заметки о клиенте</Label>
+                    <textarea
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs min-h-[60px] resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+                      placeholder="Предпочтения, аллергии, особые пожелания..."
+                      value={form.clientDetailNotes}
+                      onChange={e => setForm(f => ({ ...f, clientDetailNotes: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Status + admin (not for events) */}

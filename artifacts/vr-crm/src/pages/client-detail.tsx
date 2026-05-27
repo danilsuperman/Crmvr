@@ -5,12 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ChevronLeft, Phone, Mail, MessageSquare, Star, Calendar, CreditCard,
   Gamepad2, Users, Baby, Cake, UtensilsCrossed, TrendingUp, AlertTriangle,
-  Bot, Sparkles, Heart, Trophy, Clock, Zap, Edit2, Save, X, ChevronDown, ChevronUp
+  Bot, Sparkles, Heart, Trophy, Clock, Zap, Edit2, Save, X, ChevronDown, ChevronUp,
+  Plus, Trash2, StickyNote, Send
 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 
 // ─── MOCK CLIENT DATA ──────────────────────────────────────────────────────────
 
@@ -127,11 +131,68 @@ function Section({ title, icon: Icon, children, defaultOpen = true }: {
 
 // ─── MAIN ──────────────────────────────────────────────────────────────────────
 
+type Child = { name: string; birthday: string };
+type Note = { id: number; text: string; createdAt: string };
+
 export default function ClientDetail() {
   const params = useParams<{ id: string }>();
   const client = MOCK_CLIENT;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: client.name, phone: client.phone, email: client.email });
+
+  // Children state
+  const [children, setChildren] = useState<Child[]>(
+    client.children.map(c => ({ name: c.name, birthday: c.birthday }))
+  );
+  const [childModal, setChildModal] = useState(false);
+  const [childForm, setChildForm] = useState<Child>({ name: "", birthday: "" });
+  const [editChildIdx, setEditChildIdx] = useState<number | null>(null);
+
+  const openAddChild = () => {
+    setEditChildIdx(null);
+    setChildForm({ name: "", birthday: "" });
+    setChildModal(true);
+  };
+  const openEditChild = (i: number) => {
+    setEditChildIdx(i);
+    setChildForm({ ...children[i] });
+    setChildModal(true);
+  };
+  const saveChild = () => {
+    if (!childForm.name.trim()) return;
+    if (editChildIdx !== null) {
+      setChildren(prev => prev.map((c, i) => i === editChildIdx ? childForm : c));
+      toast.success("Данные ребёнка обновлены");
+    } else {
+      setChildren(prev => [...prev, childForm]);
+      toast.success("Ребёнок добавлен");
+    }
+    setChildModal(false);
+  };
+  const deleteChild = (i: number) => {
+    setChildren(prev => prev.filter((_, idx) => idx !== i));
+    toast.success("Удалено");
+  };
+
+  // Notes state
+  const [notes, setNotes] = useState<Note[]>([
+    { id: 1, text: "Клиент предпочитает зону Arena A. Аллергия на арахис — учитывать при заказе еды.", createdAt: "14 мая 2026" },
+  ]);
+  const [noteInput, setNoteInput] = useState("");
+  const addNote = () => {
+    const text = noteInput.trim();
+    if (!text) return;
+    setNotes(prev => [...prev, {
+      id: Date.now(),
+      text,
+      createdAt: format(new Date(), "d MMMM yyyy", { locale: ru }),
+    }]);
+    setNoteInput("");
+    toast.success("Заметка добавлена");
+  };
+  const deleteNote = (id: number) => {
+    setNotes(prev => prev.filter(n => n.id !== id));
+  };
 
   const statusColor = client.status === "VIP"
     ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
@@ -335,24 +396,81 @@ export default function ClientDetail() {
               {/* Block 4: Family */}
               <Section title="Семья и дети" icon={Baby}>
                 <div className="space-y-2.5">
-                  {client.children.map((child, i) => (
-                    <div key={i} className="p-2.5 rounded-lg bg-card/30 border border-border/30">
+                  {children.map((child, i) => (
+                    <div key={i} className="p-2.5 rounded-lg bg-card/30 border border-border/30 group">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-semibold">{child.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{child.age} лет</span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEditChild(i)} className="w-5 h-5 rounded flex items-center justify-center hover:bg-muted/40 text-muted-foreground hover:text-foreground transition-colors">
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button onClick={() => deleteChild(i)} className="w-5 h-5 rounded flex items-center justify-center hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mb-1">
-                        <Cake className="w-3 h-3" /> {child.birthday}
-                      </p>
-                      <div className="flex gap-1 flex-wrap">
-                        {child.favoriteGames.map(g => (
-                          <span key={g} className="text-[9px] px-1 py-0.5 rounded bg-muted/20 border border-border/30">{g}</span>
-                        ))}
-                      </div>
+                      {child.birthday && (
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Cake className="w-3 h-3" /> {child.birthday}
+                        </p>
+                      )}
                     </div>
                   ))}
+                  {children.length === 0 && (
+                    <p className="text-xs text-muted-foreground/50 text-center py-2">Нет данных о детях</p>
+                  )}
+                  <button
+                    onClick={openAddChild}
+                    className="w-full h-8 rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Добавить ребёнка
+                  </button>
                 </div>
               </Section>
+
+              {/* Children modal */}
+              {childModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setChildModal(false)} />
+                  <div className="relative z-10 w-full max-w-sm bg-card border border-border/70 rounded-2xl shadow-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold">{editChildIdx !== null ? "Изменить данные" : "Добавить ребёнка"}</h3>
+                      <button onClick={() => setChildModal(false)} className="w-7 h-7 rounded-lg hover:bg-muted/40 flex items-center justify-center text-muted-foreground">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Имя *</Label>
+                        <Input
+                          className="h-8 text-xs"
+                          placeholder="Имя ребёнка"
+                          value={childForm.name}
+                          onChange={e => setChildForm(p => ({ ...p, name: e.target.value }))}
+                          onKeyDown={e => e.key === "Enter" && saveChild()}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Дата рождения</Label>
+                        <Input
+                          className="h-8 text-xs"
+                          placeholder="например: 12 августа 2016"
+                          value={childForm.birthday}
+                          onChange={e => setChildForm(p => ({ ...p, birthday: e.target.value }))}
+                          onKeyDown={e => e.key === "Enter" && saveChild()}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setChildModal(false)}>Отмена</Button>
+                      <Button size="sm" className="flex-1 h-8 text-xs" onClick={saveChild} disabled={!childForm.name.trim()}>
+                        <Save className="w-3.5 h-3.5 mr-1.5" /> Сохранить
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Block 5: Events / Birthdays */}
               <Section title="События и ДР" icon={Cake} defaultOpen={false}>
@@ -412,6 +530,46 @@ export default function ClientDetail() {
                       </span>
                     </div>
                   ))}
+                </div>
+              </Section>
+
+              {/* Block: Notes */}
+              <Section title="Заметки" icon={StickyNote}>
+                <div className="space-y-2.5">
+                  {notes.map(note => (
+                    <div key={note.id} className="p-3 rounded-lg bg-card/30 border border-border/30 group relative">
+                      <p className="text-xs leading-relaxed pr-6">{note.text}</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-1.5">{note.createdAt}</p>
+                      <button
+                        onClick={() => deleteNote(note.id)}
+                        className="absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {notes.length === 0 && (
+                    <p className="text-xs text-muted-foreground/50 text-center py-2">Нет заметок</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Textarea
+                      className="text-xs min-h-[64px] resize-none flex-1"
+                      placeholder="Добавить заметку..."
+                      value={noteInput}
+                      onChange={e => setNoteInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addNote();
+                      }}
+                    />
+                    <button
+                      onClick={addNote}
+                      disabled={!noteInput.trim()}
+                      className="w-9 h-9 mt-auto rounded-lg border border-border/50 flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/40">Ctrl+Enter для быстрой отправки</p>
                 </div>
               </Section>
 
