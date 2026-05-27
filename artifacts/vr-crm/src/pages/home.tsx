@@ -32,6 +32,7 @@ import {
   MessageSquare,
   Send,
   Users,
+  Cake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,6 +110,7 @@ interface BookingFormState {
   clientTelegram: string;
   clientBirthday: string;
   clientDetailNotes: string;
+  clientChildren: { name: string; birthday: string }[];
 }
 
 type Booking = {
@@ -158,7 +160,60 @@ const EMPTY_FORM: BookingFormState = {
   clientTelegram: "",
   clientBirthday: "",
   clientDetailNotes: "",
+  clientChildren: [],
 };
+
+function ChildAddRow({ onAdd }: { onAdd: (child: { name: string; birthday: string }) => void }) {
+  const [name, setName] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const submit = () => {
+    if (!name.trim()) return;
+    onAdd({ name: name.trim(), birthday: birthday.trim() });
+    setName("");
+    setBirthday("");
+    setOpen(false);
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full h-7 rounded-lg border border-dashed border-border/50 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-1.5"
+      >
+        <Plus className="w-3 h-3" /> Добавить ребёнка
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border/50 bg-card/30 p-2.5 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          autoFocus
+          className="h-7 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+          placeholder="Имя *"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+        />
+        <input
+          className="h-7 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+          placeholder="Дата рождения"
+          value={birthday}
+          onChange={e => setBirthday(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+        />
+      </div>
+      <div className="flex gap-1.5">
+        <button type="button" onClick={() => setOpen(false)} className="flex-1 h-6 text-[11px] border border-border/40 rounded-md text-muted-foreground hover:bg-muted/20 transition-colors">Отмена</button>
+        <button type="button" onClick={submit} disabled={!name.trim()} className="flex-1 h-6 text-[11px] bg-primary/15 border border-primary/30 rounded-md text-primary hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium">Добавить</button>
+      </div>
+    </div>
+  );
+}
 
 function SendMessageForm({
   clientName, clientPhone, date, startTime, endTime, zoneName,
@@ -1381,6 +1436,42 @@ export default function Home() {
                       value={form.clientDetailNotes}
                       onChange={e => setForm(f => ({ ...f, clientDetailNotes: e.target.value }))}
                     />
+                  </div>
+
+                  {/* Children */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs flex items-center gap-1.5">
+                        <span>👶</span> Дети
+                        {form.clientChildren.length > 0 && (
+                          <span className="text-[10px] text-muted-foreground font-normal">({form.clientChildren.length})</span>
+                        )}
+                      </Label>
+                    </div>
+                    {form.clientChildren.length > 0 && (
+                      <div className="space-y-1.5">
+                        {form.clientChildren.map((child, i) => (
+                          <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-card/40 border border-border/30">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium">{child.name}</p>
+                              {child.birthday && (
+                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Cake className="w-2.5 h-2.5" /> {child.birthday}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, clientChildren: f.clientChildren.filter((_, idx) => idx !== i) }))}
+                              className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <ChildAddRow onAdd={child => setForm(f => ({ ...f, clientChildren: [...f.clientChildren, child] }))} />
                   </div>
                 </div>
               )}

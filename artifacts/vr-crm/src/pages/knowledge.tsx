@@ -241,7 +241,16 @@ export default function Knowledge() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {isRead ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Circle className="w-4 h-4 text-muted-foreground/40" />}
+                        <button
+                          title={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                          onClick={e => { e.stopPropagation(); setReadState(s => ({ ...s, [article.id]: !isRead })); toast.success(isRead ? "Отмечено как непрочитанное" : "Отмечено как прочитанное"); }}
+                          className="rounded-full transition-all hover:scale-110 active:scale-95"
+                        >
+                          {isRead
+                            ? <CheckCircle2 className="w-4 h-4 text-emerald-400 hover:text-emerald-300" />
+                            : <Circle className="w-4 h-4 text-muted-foreground/40 hover:text-emerald-400/70" />
+                          }
+                        </button>
                         {adminMode && (
                           <>
                             <button onClick={e => { e.stopPropagation(); openEdit(article); }} className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors">
