@@ -27,6 +27,8 @@ import Loyalty from "@/pages/loyalty";
 import AiAdmin from "@/pages/ai-admin";
 import Knowledge from "@/pages/knowledge";
 import KnowledgeArticle from "@/pages/knowledge-article";
+import ClientsSegments from "@/pages/clients-segments";
+import ClientsSegmentNew from "@/pages/clients-segments-new";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,8 @@ function Router() {
         <Route path="/control/:id" component={DeviceDetail} />
         <Route path="/devices" component={Devices} />
         <Route path="/devices/add" component={DeviceAdd} />
+        <Route path="/clients/segments/new" component={ClientsSegmentNew} />
+        <Route path="/clients/segments" component={ClientsSegments} />
         <Route path="/clients" component={Clients} />
         <Route path="/clients/:id" component={ClientDetail} />
         <Route path="/analytics" component={Analytics} />

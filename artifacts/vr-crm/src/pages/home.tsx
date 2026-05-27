@@ -65,6 +65,7 @@ function getStatusColor(status: string) {
     case "pending": return "bg-amber-500/20 text-amber-300 border-amber-500/30";
     case "cancelled": return "bg-red-500/20 text-red-400 border-red-500/30";
     case "event": return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    case "prepaid": return "bg-sky-500/20 text-sky-300 border-sky-500/30";
     default: return "bg-muted text-muted-foreground border-border";
   }
 }
@@ -75,6 +76,7 @@ function getStatusLabel(status: string) {
     case "pending": return "Ожидание";
     case "cancelled": return "Отменено";
     case "event": return "Мероприятие";
+    case "prepaid": return "Предоплачено";
     default: return status;
   }
 }
@@ -385,6 +387,12 @@ export default function Home() {
   const [sendMsgOpen, setSendMsgOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BookingFormState>(EMPTY_FORM);
+
+  useEffect(() => {
+    if (form.paidAmount && Number(form.paidAmount) > 0 && !form.isEvent) {
+      setForm(f => f.status !== "prepaid" ? { ...f, status: "prepaid" } : f);
+    }
+  }, [form.paidAmount, form.isEvent]);
 
   // Event dashboard state
   const [eventDashPkgId, setEventDashPkgId] = useState<number | null>(null);
@@ -1315,6 +1323,7 @@ export default function Home() {
                     <SelectContent>
                       <SelectItem value="confirmed">Подтверждено</SelectItem>
                       <SelectItem value="pending">Ожидание</SelectItem>
+                      <SelectItem value="prepaid">Предоплачено</SelectItem>
                       <SelectItem value="event">Мероприятие</SelectItem>
                       <SelectItem value="cancelled">Отменено</SelectItem>
                     </SelectContent>
@@ -1380,7 +1389,7 @@ export default function Home() {
             </div>
 
             {/* Paid amount */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Внесено оплаты (₽)</Label>
                 <Input
@@ -1392,26 +1401,35 @@ export default function Home() {
                   onChange={e => setForm(f => ({ ...f, paidAmount: e.target.value }))}
                 />
               </div>
-              <div className="flex items-end pb-1">
-                {form.paidAmount && Number(form.paidAmount) > 0 ? (
-                  <span className="text-xs font-semibold text-emerald-400">✓ Оплачено: {Number(form.paidAmount).toLocaleString("ru")} ₽</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground/60">Не оплачено</span>
-                )}
-              </div>
+              {form.paidAmount && Number(form.paidAmount) > 0 && bookingCalc ? (
+                <div className="rounded-lg bg-sky-500/8 border border-sky-500/20 px-3 py-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Внесена предоплата</span>
+                    <span className="font-semibold text-sky-400">+{Number(form.paidAmount).toLocaleString("ru")} ₽</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Итого к оплате</span>
+                    <span className="font-medium">{bookingCalc.total.toLocaleString("ru")} ₽</span>
+                  </div>
+                  <div className="w-full bg-muted/30 rounded-full h-1.5">
+                    <div
+                      className="bg-sky-400 h-1.5 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (Number(form.paidAmount) / bookingCalc.total) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <span className="text-muted-foreground">Остаток при визите</span>
+                    <span className={cn("font-bold", bookingCalc.total - Number(form.paidAmount) <= 0 ? "text-emerald-400" : "text-amber-400")}>
+                      {Math.max(0, bookingCalc.total - Number(form.paidAmount)).toLocaleString("ru")} ₽
+                    </span>
+                  </div>
+                </div>
+              ) : form.paidAmount && Number(form.paidAmount) > 0 ? (
+                <span className="text-xs font-semibold text-sky-400">✓ Предоплата: {Number(form.paidAmount).toLocaleString("ru")} ₽</span>
+              ) : (
+                <span className="text-xs text-muted-foreground/60">Оплата не внесена</span>
+              )}
             </div>
-
-            {/* Send message */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full h-8 text-xs gap-1.5 border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
-              onClick={() => setSendMsgOpen(true)}
-              disabled={!form.clientName.trim()}
-            >
-              <MessageSquare className="w-3.5 h-3.5" /> Отправить сообщение клиенту
-            </Button>
 
             {/* ── Price summary block ───────────────────────────────── */}
             {bookingCalc && (
@@ -1563,6 +1581,19 @@ export default function Home() {
                         </p>
                       )}
                     </div>
+                  )}
+
+                  {generatedLink && !linkGenerating && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 text-xs gap-1.5 border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
+                      onClick={() => setSendMsgOpen(true)}
+                      disabled={!form.clientName.trim()}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" /> Отправить сообщение клиенту
+                    </Button>
                   )}
                 </div>
               </div>

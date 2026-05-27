@@ -73,8 +73,17 @@ function getSegmentCount(segment: string, clients: typeof MOCK_CLIENTS_DATA): nu
   }
 }
 
+const SEGMENT_FILTERS = [
+  { id: "all", label: "Все", icon: "👥" },
+  { id: "vip", label: "VIP", icon: "💎" },
+  { id: "regular", label: "Постоянные", icon: "⭐" },
+  { id: "new", label: "Новые", icon: "🌟" },
+  { id: "inactive", label: "Неактивные", icon: "😴" },
+];
+
 export default function Clients() {
   const [search, setSearch] = useState("");
+  const [activeSegment, setActiveSegment] = useState("all");
   const [, navigate] = useLocation();
   useListClients({ search });
   const isLoading = false;
@@ -82,12 +91,17 @@ export default function Clients() {
   const [allClients, setAllClients] = useLocalStorage<typeof MOCK_CLIENTS_DATA>("vrpark_clients", MOCK_CLIENTS_DATA);
   const [campaigns, setCampaigns] = useLocalStorage<Campaign[]>("vrpark_campaigns", []);
 
-  const clients = allClients.filter(
-    (c) =>
-      !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone.includes(search)
-  );
+  const now = new Date();
+  const clients = allClients.filter((c) => {
+    if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.phone.includes(search)) return false;
+    switch (activeSegment) {
+      case "vip": return c.visitCount >= 10;
+      case "regular": return c.visitCount >= 3 && c.visitCount < 10;
+      case "new": return c.visitCount <= 1;
+      case "inactive": return (now.getTime() - new Date(c.lastVisit).getTime()) / 86400000 >= 30;
+      default: return true;
+    }
+  });
 
   const [addOpen, setAddOpen] = useState(false);
   const [clientForm, setClientForm] = useState({ name: "", phone: "" });
@@ -165,7 +179,7 @@ export default function Clients() {
           >
             <Send className="w-3.5 h-3.5" /> Создать рассылку
           </Button>
-          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => toast.info("Сегменты клиентов: VIP, Новые, Неактивные")}>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => navigate("/clients/segments")}>
             <Filter className="w-3.5 h-3.5" /> Сегменты
           </Button>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => toast.success("Экспорт начат (CSV)")}>
@@ -177,6 +191,40 @@ export default function Clients() {
               <span>{campaigns.length} кампани{campaigns.length === 1 ? "я" : campaigns.length < 5 ? "и" : "й"}</span>
             </div>
           )}
+        </div>
+
+        {/* Segment filter tabs */}
+        <div className="flex gap-1.5 mt-2.5 overflow-x-auto no-scrollbar pb-0.5">
+          {SEGMENT_FILTERS.map(seg => {
+            const isActive = activeSegment === seg.id;
+            const count = allClients.filter(c => {
+              switch (seg.id) {
+                case "vip": return c.visitCount >= 10;
+                case "regular": return c.visitCount >= 3 && c.visitCount < 10;
+                case "new": return c.visitCount <= 1;
+                case "inactive": return (now.getTime() - new Date(c.lastVisit).getTime()) / 86400000 >= 30;
+                default: return true;
+              }
+            }).length;
+            return (
+              <button
+                key={seg.id}
+                onClick={() => setActiveSegment(seg.id)}
+                className={cn(
+                  "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                  isActive
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border/50 bg-card/20 text-muted-foreground hover:border-border hover:text-foreground"
+                )}
+              >
+                <span>{seg.icon}</span>
+                <span>{seg.label}</span>
+                <span className={cn("text-[10px] font-bold tabular-nums", isActive ? "text-primary" : "text-muted-foreground/60")}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
