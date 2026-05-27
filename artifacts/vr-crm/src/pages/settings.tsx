@@ -582,72 +582,73 @@ export default function Settings() {
             </div>
 
             <Card className="bg-card/30 border-border/50">
-              <CardHeader className="pb-2 pt-4 px-4">
+              <CardHeader className="pb-3 pt-4 px-4">
                 <CardTitle className="text-sm flex items-center gap-2"><Shield className="w-4 h-4" /> Права доступа по ролям</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Нажмите на ВКЛ / ВЫКЛ чтобы изменить права для роли</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Выберите роль и нажмите на раздел, чтобы включить или выключить доступ</p>
               </CardHeader>
-              <CardContent className="px-0 pb-4 overflow-x-auto">
-                <table className="w-full text-xs min-w-[560px]">
-                  <thead>
-                    <tr className="border-b border-border/30">
-                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground w-40 shrink-0">Раздел</th>
-                      {ROLES.map(r => (
-                        <th key={r} className="px-2 py-2.5 font-semibold text-center text-muted-foreground min-w-[88px]">{r}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/20">
-                    {[
-                      { key: "bookings",      label: "Бронирования",     icon: "📅" },
-                      { key: "clients",       label: "Клиенты",          icon: "👥" },
-                      { key: "devices",       label: "Устройства",       icon: "🎮" },
-                      { key: "analytics",     label: "Аналитика",        icon: "📊" },
-                      { key: "finances",      label: "Финансы",          icon: "💰" },
-                      { key: "cameras",       label: "Камеры",           icon: "📷" },
-                      { key: "inbox",         label: "Сообщения",        icon: "✉️" },
-                      { key: "knowledge",     label: "База знаний",      icon: "📚" },
-                      { key: "ai_consulting", label: "AI Консалтинг",    icon: "🤖" },
-                      { key: "ai_admin",      label: "AI Администратор", icon: "🧠" },
-                      { key: "leagues",       label: "Лиги и рейтинги",  icon: "🏆" },
-                      { key: "loyalty",       label: "Лояльность",       icon: "❤️" },
-                      { key: "network",       label: "Сеть парков",      icon: "🌐" },
-                      { key: "registration",  label: "Конструктор",      icon: "🔧" },
-                      { key: "settings",      label: "Настройки CRM",    icon: "⚙️" },
-                    ].map((perm, i) => (
-                      <tr key={perm.key} className={cn("hover:bg-muted/10 transition-colors", i % 2 === 0 ? "bg-transparent" : "bg-muted/5")}>
-                        <td className="px-4 py-2.5 font-medium whitespace-nowrap">
-                          <span className="mr-1.5 text-sm">{perm.icon}</span>{perm.label}
-                        </td>
-                        {ROLES.map(role => {
-                          const has = rolePermissions[role]?.[perm.key] ?? false;
-                          return (
-                            <td key={role} className="px-2 py-2.5 text-center">
-                              <button
-                                onClick={() => setRolePermissions(prev => ({
-                                  ...prev,
-                                  [role]: { ...(prev[role] ?? {}), [perm.key]: !has }
-                                }))}
-                                className={cn(
-                                  "inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer w-14",
-                                  has
-                                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25"
-                                    : "bg-muted/20 border-border/40 text-muted-foreground/50 hover:border-border hover:text-muted-foreground"
-                                )}
-                              >
-                                {has ? "ВКЛ" : "ВЫКЛ"}
-                              </button>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="px-4 pt-3">
-                  <Button size="sm" className="h-7 text-xs w-full" variant="outline" onClick={() => { setPermSaved(true); toast.success("Права сохранены"); setTimeout(() => setPermSaved(false), 2000); }}>
-                    {permSaved ? <><CheckCircle2 className="w-3 h-3 mr-1.5" />Сохранено</> : "Сохранить права доступа"}
-                  </Button>
+              <CardContent className="px-4 pb-4 space-y-4">
+                {/* Role selector */}
+                <div className="flex flex-wrap gap-2">
+                  {ROLES.map(role => (
+                    <button
+                      key={role}
+                      onClick={() => setSelectedRole(role)}
+                      className={cn(
+                        "px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                        selectedRole === role
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-border/50 bg-card/20 text-muted-foreground hover:border-border hover:text-foreground"
+                      )}
+                    >
+                      {role}
+                    </button>
+                  ))}
                 </div>
+
+                {/* Permission pills */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: "bookings",      label: "Бронирования",     icon: "📅" },
+                    { key: "clients",       label: "Клиенты",          icon: "👥" },
+                    { key: "devices",       label: "Устройства",       icon: "🎮" },
+                    { key: "analytics",     label: "Аналитика",        icon: "📊" },
+                    { key: "finances",      label: "Финансы",          icon: "💰" },
+                    { key: "cameras",       label: "Камеры",           icon: "📷" },
+                    { key: "inbox",         label: "Сообщения",        icon: "✉️" },
+                    { key: "knowledge",     label: "База знаний",      icon: "📚" },
+                    { key: "ai_consulting", label: "AI Консалтинг",    icon: "🤖" },
+                    { key: "ai_admin",      label: "AI Администратор", icon: "🧠" },
+                    { key: "leagues",       label: "Лиги и рейтинги",  icon: "🏆" },
+                    { key: "loyalty",       label: "Лояльность",       icon: "❤️" },
+                    { key: "network",       label: "Сеть парков",      icon: "🌐" },
+                    { key: "registration",  label: "Конструктор",      icon: "🔧" },
+                    { key: "settings",      label: "Настройки CRM",    icon: "⚙️" },
+                  ].map(perm => {
+                    const has = rolePermissions[selectedRole]?.[perm.key] ?? false;
+                    return (
+                      <button
+                        key={perm.key}
+                        onClick={() => setRolePermissions(prev => ({
+                          ...prev,
+                          [selectedRole]: { ...(prev[selectedRole] ?? {}), [perm.key]: !has }
+                        }))}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all",
+                          has
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25"
+                            : "bg-muted/10 border-border/30 text-muted-foreground/50 hover:border-border/60 hover:text-muted-foreground"
+                        )}
+                      >
+                        <span className="text-sm leading-none">{perm.icon}</span>
+                        <span>{perm.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <Button size="sm" className="h-7 text-xs w-full" variant="outline" onClick={() => { setPermSaved(true); toast.success("Права сохранены"); setTimeout(() => setPermSaved(false), 2000); }}>
+                  {permSaved ? <><CheckCircle2 className="w-3 h-3 mr-1.5" />Сохранено</> : "Сохранить права доступа"}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
