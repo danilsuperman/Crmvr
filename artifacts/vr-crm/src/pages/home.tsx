@@ -90,6 +90,7 @@ interface BookingFormState {
   adminName: string;
   isEvent: boolean;
   packageId: string;
+  zoneSessionTypes: Record<number, string>; // zoneId → sessionTypeId for package mode
 }
 
 type Booking = {
@@ -126,6 +127,7 @@ const EMPTY_FORM: BookingFormState = {
   adminName: "",
   isEvent: false,
   packageId: "",
+  zoneSessionTypes: {},
 };
 
 export default function Home() {
@@ -274,6 +276,10 @@ export default function Home() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [prepayPercent, setPrepayPercent] = useState(30);
+  const [customPrepay, setCustomPrepay] = useState("");
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [linkGenerating, setLinkGenerating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BookingFormState>(EMPTY_FORM);
 
@@ -413,45 +419,75 @@ export default function Home() {
 
   const selectedPkg = packages.find((p) => p.id === Number(form.packageId));
 
-  // ── Booking amount calculation ────────────────────────────────────────────
+  // ── Booking amount calculation (per zone breakdown) ──────────────────────
   const bookingCalc = useMemo(() => {
     const guests = parseInt(form.guestsCount) || 1;
-
-    // Duration in minutes from start/end time
     const [sh, sm] = form.startTime.split(":").map(Number);
     const [eh, em] = form.endTime.split(":").map(Number);
     const durationMin = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
 
     if (form.isEvent && form.packageId) {
-      const pkgId = Number(form.packageId);
-      const pkgPrice = PACKAGE_PRICE[pkgId] ?? 0;
-      return { total: pkgPrice, pricePerPerson: null, guests, durationMin, type: "package" as const };
+      const pkg = packages.find(p => p.id === Number(form.packageId));
+      if (!pkg) return null;
+
+      const zoneLines = pkg.zoneIds.map(zid => {
+        const zone = zones.find(z => z.id === zid);
+        const stId = Number(form.zoneSessionTypes[zid] ?? "") || 0;
+        const st = stId ? sessionTypes.find(s => s.id === stId) : null;
+        const pricePerPerson = stId ? (SESSION_PRICE[stId] ?? 0) : 0;
+        const subtotal = pricePerPerson * guests;
+        return { zoneId: zid, zoneName: zone?.name ?? `Зона ${zid}`, zoneColor: zone?.color, st, pricePerPerson, subtotal };
+      });
+
+      const total = zoneLines.reduce((s, l) => s + l.subtotal, 0);
+      return { type: "package" as const, total, guests, durationMin, zoneLines };
     }
 
     if (form.sessionTypeId) {
       const stId = Number(form.sessionTypeId);
+      const st = sessionTypes.find(s => s.id === stId);
+      const zone = zones.find(z => z.id === Number(form.zoneId));
       const pricePerPerson = SESSION_PRICE[stId] ?? 0;
-      const total = pricePerPerson * guests;
-      return { total, pricePerPerson, guests, durationMin, type: "session" as const };
+      const subtotal = pricePerPerson * guests;
+      const zoneLines = [{ zoneId: Number(form.zoneId), zoneName: zone?.name ?? "Зона", zoneColor: zone?.color, st, pricePerPerson, subtotal }];
+      return { type: "session" as const, total: subtotal, guests, durationMin, zoneLines };
     }
 
-    // Fallback: time-based (40₽/мин × чел)
     if (durationMin > 0) {
       const pricePerPerson = Math.round(durationMin * 40);
-      const total = pricePerPerson * guests;
-      return { total, pricePerPerson, guests, durationMin, type: "time" as const };
+      const zone = zones.find(z => z.id === Number(form.zoneId));
+      const subtotal = pricePerPerson * guests;
+      const zoneLines = [{ zoneId: Number(form.zoneId), zoneName: zone?.name ?? "Зона", zoneColor: zone?.color, st: null, pricePerPerson, subtotal }];
+      return { type: "time" as const, total: subtotal, guests, durationMin, zoneLines };
     }
 
     return null;
-  }, [form.sessionTypeId, form.packageId, form.isEvent, form.guestsCount, form.startTime, form.endTime]);
+  }, [form.sessionTypeId, form.packageId, form.isEvent, form.guestsCount,
+      form.startTime, form.endTime, form.zoneId, form.zoneSessionTypes,
+      zones, sessionTypes, packages]);
 
-  const PREPAY_PERCENT = 30;
-  const prepayAmount = bookingCalc ? Math.round(bookingCalc.total * PREPAY_PERCENT / 100) : 0;
+  const prepayAmount = bookingCalc ? Math.round(bookingCalc.total * prepayPercent / 100) : 0;
+
+  const handleGenerateLink = () => {
+    const clientSlug = form.clientName.trim().toLowerCase().replace(/[^а-яёa-z0-9]/gi, "-").replace(/-+/g, "-") || "client";
+    const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const fullLink = `https://pay.vrpark.co/book/${clientSlug}-${token}`;
+    setGeneratedLink(null);
+    setLinkGenerating(true);
+    setLinkCopied(false);
+    let i = 0;
+    const step = () => {
+      i++;
+      setGeneratedLink(fullLink.slice(0, i));
+      if (i < fullLink.length) setTimeout(step, 18);
+      else setLinkGenerating(false);
+    };
+    step();
+  };
 
   const handleCopyPayLink = () => {
-    const clientSlug = form.clientName.trim().toLowerCase().replace(/\s+/g, "-") || "client";
-    const link = `https://pay.vrpark.co/book/${clientSlug}-${Date.now().toString(36)}`;
-    navigator.clipboard.writeText(link).catch(() => {});
+    if (!generatedLink) return;
+    navigator.clipboard.writeText(generatedLink).catch(() => {});
     toast.success("Ссылка скопирована в буфер");
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2500);
@@ -906,17 +942,38 @@ export default function Home() {
                   </SelectContent>
                 </Select>
                 {selectedPkg && (
-                  <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 text-[11px] text-blue-300 space-y-1">
+                  <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 text-[11px] text-blue-300 space-y-2">
                     <div className="font-semibold">{selectedPkg.name}</div>
                     {selectedPkg.description && <div className="text-blue-300/70">{selectedPkg.description}</div>}
-                    <div>
-                      Зоны:{" "}
-                      {selectedPkg.zoneIds
-                        .map((zid) => zones.find((z) => z.id === zid)?.name)
-                        .filter(Boolean)
-                        .join(", ") || "—"}
+                    <div className="text-blue-300/70">Макс. гостей: {selectedPkg.maxGuests}</div>
+                    {/* Per-zone session type selectors */}
+                    <div className="space-y-1.5 pt-1 border-t border-blue-500/20">
+                      <p className="text-[10px] font-semibold text-blue-300/80 uppercase tracking-wider">Тип сеанса по зонам</p>
+                      {selectedPkg.zoneIds.map((zid) => {
+                        const zone = zones.find(z => z.id === zid);
+                        return (
+                          <div key={zid} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: zone?.color ?? "#6366f1" }} />
+                            <span className="w-20 truncate text-blue-200 font-medium">{zone?.name ?? `Зона ${zid}`}</span>
+                            <Select
+                              value={form.zoneSessionTypes[zid] ?? ""}
+                              onValueChange={(v) => setForm(f => ({ ...f, zoneSessionTypes: { ...f.zoneSessionTypes, [zid]: v } }))}
+                            >
+                              <SelectTrigger className="h-7 text-[11px] flex-1 bg-blue-500/10 border-blue-500/30">
+                                <SelectValue placeholder="Выбрать сеанс" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {sessionTypes.map(st => (
+                                  <SelectItem key={st.id} value={st.id.toString()} className="text-xs">
+                                    {st.name} — {(SESSION_PRICE[st.id] ?? 0).toLocaleString("ru")} ₽/чел.
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div>Макс. гостей: {selectedPkg.maxGuests}</div>
                   </div>
                 )}
               </div>
@@ -1044,86 +1101,157 @@ export default function Home() {
             </div>
 
             {/* ── Price summary block ───────────────────────────────── */}
-            {bookingCalc && bookingCalc.total > 0 && (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+            {bookingCalc && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
                 {/* Header */}
                 <div className="flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="text-xs font-semibold text-emerald-400">Расчёт стоимости</span>
+                  {bookingCalc.durationMin > 0 && (
+                    <span className="ml-auto text-[10px] text-muted-foreground">
+                      {bookingCalc.durationMin >= 60
+                        ? `${Math.floor(bookingCalc.durationMin / 60)} ч ${bookingCalc.durationMin % 60 > 0 ? `${bookingCalc.durationMin % 60} мин` : ""}`.trim()
+                        : `${bookingCalc.durationMin} мин`}
+                    </span>
+                  )}
                 </div>
 
-                {/* Breakdown */}
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  {bookingCalc.type === "session" && bookingCalc.pricePerPerson !== null && (
-                    <div className="flex justify-between">
-                      <span>
-                        {sessionTypes.find(s => s.id === Number(form.sessionTypeId))?.name ?? "Сеанс"}
-                        {" × "}{bookingCalc.guests} гост.
+                {/* Per-zone breakdown */}
+                <div className="space-y-1.5">
+                  {bookingCalc.zoneLines.map((line, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      {line.zoneColor && (
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: line.zoneColor }} />
+                      )}
+                      <span className="flex-1 truncate font-medium">{line.zoneName}</span>
+                      {line.st && (
+                        <span className="text-[10px] text-muted-foreground hidden sm:inline truncate max-w-[90px]">{line.st.name}</span>
+                      )}
+                      <span className="text-muted-foreground">
+                        {line.pricePerPerson > 0
+                          ? `${line.pricePerPerson.toLocaleString("ru")} × ${bookingCalc.guests}`
+                          : <span className="text-amber-400/70">—</span>}
                       </span>
-                      <span>{bookingCalc.pricePerPerson.toLocaleString("ru")} ₽ / чел.</span>
+                      <span className={cn("font-bold shrink-0 w-16 text-right", line.subtotal > 0 ? "text-foreground" : "text-muted-foreground/50")}>
+                        {line.subtotal > 0 ? `${line.subtotal.toLocaleString("ru")} ₽` : "0 ₽"}
+                      </span>
                     </div>
-                  )}
-                  {bookingCalc.type === "package" && (
-                    <div className="flex justify-between">
-                      <span>{selectedPkg?.name ?? "Пакет"}</span>
-                      <span>фиксированная цена</span>
-                    </div>
-                  )}
-                  {bookingCalc.type === "time" && bookingCalc.pricePerPerson !== null && (
-                    <div className="flex justify-between">
-                      <span>{bookingCalc.durationMin} мин × {bookingCalc.guests} гост.</span>
-                      <span>{bookingCalc.pricePerPerson.toLocaleString("ru")} ₽ / чел.</span>
-                    </div>
-                  )}
-                  {bookingCalc.durationMin > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground/70">Длительность</span>
-                      <span>{bookingCalc.durationMin >= 60
-                        ? `${Math.floor(bookingCalc.durationMin / 60)} ч ${bookingCalc.durationMin % 60 > 0 ? `${bookingCalc.durationMin % 60} мин` : ""}`.trim()
-                        : `${bookingCalc.durationMin} мин`
-                      }</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
 
                 {/* Total */}
-                <div className="flex items-center justify-between pt-1.5 border-t border-emerald-500/20">
+                <div className="flex items-center justify-between pt-2 border-t border-emerald-500/20">
                   <span className="text-sm font-bold">Итого</span>
-                  <span className="text-xl font-black text-emerald-400">
+                  <span className="text-2xl font-black text-emerald-400 tabular-nums">
                     {bookingCalc.total.toLocaleString("ru")} ₽
                   </span>
                 </div>
 
-                {/* Prepay row */}
-                <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-2.5 py-2">
-                  <div>
-                    <p className="text-xs font-semibold">Предоплата {PREPAY_PERCENT}%</p>
-                    <p className="text-[10px] text-muted-foreground">Для подтверждения брони</p>
+                {/* Prepay % selector */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Предоплата</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[10, 25, 50, 100].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => { setPrepayPercent(pct); setCustomPrepay(""); }}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-xs font-bold border transition-all",
+                          prepayPercent === pct && customPrepay === ""
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                            : "border-border/50 text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400"
+                        )}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1 flex-1 min-w-[80px]">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder="Свой %"
+                        value={customPrepay}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setCustomPrepay(v);
+                          const n = parseInt(v);
+                          if (n >= 1 && n <= 100) setPrepayPercent(n);
+                        }}
+                        className={cn(
+                          "w-full h-7 px-2 text-xs rounded-lg border bg-transparent focus:outline-none transition-all",
+                          customPrepay
+                            ? "border-emerald-500/50 text-emerald-400"
+                            : "border-border/50 text-muted-foreground placeholder:text-muted-foreground/40"
+                        )}
+                      />
+                    </div>
                   </div>
-                  <span className="text-base font-black text-emerald-400">
-                    {prepayAmount.toLocaleString("ru")} ₽
-                  </span>
+
+                  {/* Prepay amount display */}
+                  <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+                    <div>
+                      <p className="text-xs font-semibold">К оплате сейчас ({prepayPercent}%)</p>
+                      <p className="text-[10px] text-muted-foreground">Остаток {(bookingCalc.total - prepayAmount).toLocaleString("ru")} ₽ — на месте</p>
+                    </div>
+                    <span className="text-lg font-black text-emerald-400 tabular-nums">
+                      {prepayAmount.toLocaleString("ru")} ₽
+                    </span>
+                  </div>
                 </div>
 
-                {/* Generate link button */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "w-full h-8 text-xs gap-1.5 transition-all",
-                    linkCopied
-                      ? "border-emerald-500/50 text-emerald-400 bg-emerald-500/10"
-                      : "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                {/* Generate link */}
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-8 text-xs gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                    onClick={handleGenerateLink}
+                    disabled={linkGenerating}
+                  >
+                    {linkGenerating ? (
+                      <><Zap className="w-3.5 h-3.5 animate-pulse" /> Генерируется...</>
+                    ) : (
+                      <><Link2 className="w-3.5 h-3.5" /> Сгенерировать ссылку предоплаты</>
+                    )}
+                  </Button>
+
+                  {/* Animated link display */}
+                  {(generatedLink || linkGenerating) && (
+                    <div className="rounded-lg border border-emerald-500/20 bg-card/40 p-2.5">
+                      <p className="text-[9px] text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Ссылка для клиента</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono text-[11px] text-emerald-400 flex-1 break-all leading-relaxed">
+                          {generatedLink}
+                          {linkGenerating && (
+                            <span className="inline-block w-0.5 h-3 bg-emerald-400 ml-0.5 animate-pulse align-middle" />
+                          )}
+                        </p>
+                        {!linkGenerating && generatedLink && (
+                          <button
+                            type="button"
+                            onClick={handleCopyPayLink}
+                            className={cn(
+                              "shrink-0 w-7 h-7 rounded-lg border flex items-center justify-center transition-all",
+                              linkCopied
+                                ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-400"
+                                : "border-border/50 text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400"
+                            )}
+                          >
+                            {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+                      </div>
+                      {!linkGenerating && generatedLink && (
+                        <p className="text-[9px] text-muted-foreground/60 mt-1.5">
+                          Предоплата {prepayPercent}% · {prepayAmount.toLocaleString("ru")} ₽ · действует 24 ч
+                        </p>
+                      )}
+                    </div>
                   )}
-                  onClick={handleCopyPayLink}
-                >
-                  {linkCopied ? (
-                    <><Check className="w-3.5 h-3.5" /> Ссылка скопирована!</>
-                  ) : (
-                    <><Link2 className="w-3.5 h-3.5" /> Сгенерировать ссылку предоплаты</>
-                  )}
-                </Button>
+                </div>
               </div>
             )}
 
