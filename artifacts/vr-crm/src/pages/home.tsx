@@ -90,7 +90,9 @@ interface BookingFormState {
   adminName: string;
   isEvent: boolean;
   packageId: string;
-  zoneSessionTypes: Record<number, string>; // zoneId → sessionTypeId for package mode
+  customEvent: boolean;           // true = build unique event manually
+  customEventZoneIds: number[];   // zones chosen for custom event
+  zoneSessionTypes: Record<number, string>; // zoneId → sessionTypeId
 }
 
 type Booking = {
@@ -127,6 +129,8 @@ const EMPTY_FORM: BookingFormState = {
   adminName: "",
   isEvent: false,
   packageId: "",
+  customEvent: false,
+  customEventZoneIds: [],
   zoneSessionTypes: {},
 };
 
@@ -143,13 +147,15 @@ export default function Home() {
     { id: 5, name: "PS5", color: "#3b82f6", capacity: 2, openTime: "10:00", closeTime: "23:00" },
   ];
   const MOCK_SESSION_TYPES_HOME = [
-    { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30 },
-    { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60 },
-    { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90 },
+    { id: 1, name: "Стандарт 30 мин", color: "#6366f1", minDuration: 30, price: 1200 },
+    { id: 2, name: "Стандарт 60 мин", color: "#8b5cf6", minDuration: 60, price: 2000 },
+    { id: 3, name: "VIP 90 мин", color: "#f59e0b", minDuration: 90, price: 3500 },
+    { id: 4, name: "Максимальный 120 мин", color: "#10b981", minDuration: 120, price: 4800 },
   ];
   const MOCK_PACKAGES_HOME = [
-    { id: 1, name: "День рождения VIP", description: "Всё включено", maxGuests: 8, zoneIds: [1, 3] },
-    { id: 2, name: "Корпоратив Standard", description: "Командный тимбилдинг", maxGuests: 20, zoneIds: [1, 2, 4] },
+    { id: 1, name: "День рождения VIP", description: "Всё включено", maxGuests: 8, zoneIds: [1, 3], price: 15000 },
+    { id: 2, name: "Корпоратив Standard", description: "Командный тимбилдинг", maxGuests: 20, zoneIds: [1, 2, 4], price: 35000 },
+    { id: 3, name: "Full Park", description: "Весь парк в ваше распоряжение", maxGuests: 50, zoneIds: [1, 2, 3, 4, 5], price: 80000 },
   ];
 
   // Price per person per session type (₽)
@@ -433,6 +439,12 @@ export default function Home() {
 
   const selectedPkg = packages.find((p) => p.id === Number(form.packageId));
 
+  // ── Price helper — reads from st.price first, falls back to SESSION_PRICE ─
+  const stPrice = (stId: number) => {
+    const st = sessionTypes.find(s => s.id === stId);
+    return (st as any)?.price ?? SESSION_PRICE[stId] ?? 0;
+  };
+
   // ── Booking amount calculation (per zone breakdown) ──────────────────────
   const bookingCalc = useMemo(() => {
     const guests = parseInt(form.guestsCount) || 1;
@@ -440,28 +452,42 @@ export default function Home() {
     const [eh, em] = form.endTime.split(":").map(Number);
     const durationMin = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
 
-    if (form.isEvent && form.packageId) {
-      const pkg = packages.find(p => p.id === Number(form.packageId));
-      if (!pkg) return null;
+    if (form.isEvent) {
+      // ── Custom (hand-built) event ────────────────────────────────────────
+      if (form.customEvent) {
+        if (form.customEventZoneIds.length === 0) return null;
+        const zoneLines = form.customEventZoneIds.map(zid => {
+          const zone = zones.find(z => z.id === zid);
+          const stId = Number(form.zoneSessionTypes[zid] ?? "") || 0;
+          const st = stId ? sessionTypes.find(s => s.id === stId) : null;
+          const pricePerPerson = stId ? stPrice(stId) : 0;
+          const subtotal = pricePerPerson * guests;
+          return { zoneId: zid, zoneName: zone?.name ?? `Зона ${zid}`, zoneColor: zone?.color, st, pricePerPerson, subtotal };
+        });
+        const total = zoneLines.reduce((s, l) => s + l.subtotal, 0);
+        return { type: "custom_event" as const, total, guests, durationMin, zoneLines };
+      }
 
-      const zoneLines = pkg.zoneIds.map(zid => {
-        const zone = zones.find(z => z.id === zid);
-        const stId = Number(form.zoneSessionTypes[zid] ?? "") || 0;
-        const st = stId ? sessionTypes.find(s => s.id === stId) : null;
-        const pricePerPerson = stId ? (SESSION_PRICE[stId] ?? 0) : 0;
-        const subtotal = pricePerPerson * guests;
-        return { zoneId: zid, zoneName: zone?.name ?? `Зона ${zid}`, zoneColor: zone?.color, st, pricePerPerson, subtotal };
-      });
+      // ── Standard package — price comes directly from pkg.price ───────────
+      if (form.packageId) {
+        const pkg = packages.find(p => p.id === Number(form.packageId));
+        if (!pkg) return null;
+        const pkgPrice = (pkg as any).price ?? 0;
+        const zoneLines = pkg.zoneIds.map(zid => {
+          const zone = zones.find(z => z.id === zid);
+          return { zoneId: zid, zoneName: zone?.name ?? `Зона ${zid}`, zoneColor: zone?.color, st: null, pricePerPerson: 0, subtotal: 0 };
+        });
+        return { type: "package" as const, total: pkgPrice, guests, durationMin, zoneLines, pkgPrice };
+      }
 
-      const total = zoneLines.reduce((s, l) => s + l.subtotal, 0);
-      return { type: "package" as const, total, guests, durationMin, zoneLines };
+      return null;
     }
 
     if (form.sessionTypeId) {
       const stId = Number(form.sessionTypeId);
       const st = sessionTypes.find(s => s.id === stId);
       const zone = zones.find(z => z.id === Number(form.zoneId));
-      const pricePerPerson = SESSION_PRICE[stId] ?? 0;
+      const pricePerPerson = stPrice(stId);
       const subtotal = pricePerPerson * guests;
       const zoneLines = [{ zoneId: Number(form.zoneId), zoneName: zone?.name ?? "Зона", zoneColor: zone?.color, st, pricePerPerson, subtotal }];
       return { type: "session" as const, total: subtotal, guests, durationMin, zoneLines };
@@ -476,7 +502,8 @@ export default function Home() {
     }
 
     return null;
-  }, [form.sessionTypeId, form.packageId, form.isEvent, form.guestsCount,
+  }, [form.sessionTypeId, form.packageId, form.isEvent, form.customEvent,
+      form.customEventZoneIds, form.guestsCount,
       form.startTime, form.endTime, form.zoneId, form.zoneSessionTypes,
       zones, sessionTypes, packages]);
 
@@ -929,68 +956,173 @@ export default function Home() {
               </label>
             </div>
 
-            {/* Package dropdown (if event) */}
+            {/* Event block */}
             {form.isEvent && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Пакет мероприятия</Label>
-                <Select
-                  value={form.packageId}
-                  onValueChange={(v) => {
-                    const pkg = packages.find((p) => p.id === Number(v));
-                    setForm((f) => ({
-                      ...f,
-                      packageId: v,
-                      guestsCount: pkg ? pkg.maxGuests.toString() : f.guestsCount,
-                    }));
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Выберите пакет" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {packages.map((p) => (
-                      <SelectItem key={p.id} value={p.id.toString()}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedPkg && (
-                  <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 text-[11px] text-blue-300 space-y-2">
-                    <div className="font-semibold">{selectedPkg.name}</div>
-                    {selectedPkg.description && <div className="text-blue-300/70">{selectedPkg.description}</div>}
-                    <div className="text-blue-300/70">Макс. гостей: {selectedPkg.maxGuests}</div>
-                    {/* Per-zone session type selectors */}
-                    <div className="space-y-1.5 pt-1 border-t border-blue-500/20">
-                      <p className="text-[10px] font-semibold text-blue-300/80 uppercase tracking-wider">Тип сеанса по зонам</p>
-                      {selectedPkg.zoneIds.map((zid) => {
-                        const zone = zones.find(z => z.id === zid);
-                        return (
-                          <div key={zid} className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: zone?.color ?? "#6366f1" }} />
-                            <span className="w-20 truncate text-blue-200 font-medium">{zone?.name ?? `Зона ${zid}`}</span>
-                            <Select
-                              value={form.zoneSessionTypes[zid] ?? ""}
-                              onValueChange={(v) => setForm(f => ({ ...f, zoneSessionTypes: { ...f.zoneSessionTypes, [zid]: v } }))}
-                            >
-                              <SelectTrigger className="h-7 text-[11px] flex-1 bg-blue-500/10 border-blue-500/30">
-                                <SelectValue placeholder="Выбрать сеанс" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {sessionTypesForZone(zid).map(st => (
-                                  <SelectItem key={st.id} value={st.id.toString()} className="text-xs">
-                                    {st.name} — {(SESSION_PRICE[st.id] ?? 0).toLocaleString("ru")} ₽/чел.
-                                  </SelectItem>
-                                ))}
-                                {sessionTypesForZone(zid).length === 0 && (
-                                  <div className="px-3 py-2 text-xs text-muted-foreground">Нет доступных сеансов</div>
-                                )}
-                              </SelectContent>
-                            </Select>
+              <div className="space-y-2.5">
+                {/* Toggle: standard package vs custom */}
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-blue-500/8 rounded-lg border border-blue-500/20">
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, customEvent: false, packageId: "", zoneSessionTypes: {} }))}
+                    className={cn(
+                      "py-1.5 rounded-md text-xs font-semibold transition-all",
+                      !form.customEvent
+                        ? "bg-blue-500/25 text-blue-300 shadow-sm"
+                        : "text-muted-foreground hover:text-blue-300"
+                    )}
+                  >
+                    Выбрать пакет
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, customEvent: true, packageId: "", zoneSessionTypes: {} }))}
+                    className={cn(
+                      "py-1.5 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1",
+                      form.customEvent
+                        ? "bg-purple-500/25 text-purple-300 shadow-sm"
+                        : "text-muted-foreground hover:text-purple-300"
+                    )}
+                  >
+                    <Zap className="w-3 h-3" /> Составить уникальное
+                  </button>
+                </div>
+
+                {/* ── Standard package ── */}
+                {!form.customEvent && (
+                  <div className="space-y-2">
+                    <Select
+                      value={form.packageId}
+                      onValueChange={(v) => {
+                        const pkg = packages.find((p) => p.id === Number(v));
+                        setForm((f) => ({
+                          ...f,
+                          packageId: v,
+                          guestsCount: pkg ? pkg.maxGuests.toString() : f.guestsCount,
+                          zoneSessionTypes: {},
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Выберите пакет из настроек" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {packages.map((p) => (
+                          <SelectItem key={p.id} value={p.id.toString()}>
+                            <span className="font-medium">{p.name}</span>
+                            {(p as any).price > 0 && (
+                              <span className="ml-2 text-muted-foreground">— {((p as any).price as number).toLocaleString("ru")} ₽</span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Package info card — read-only, from settings */}
+                    {selectedPkg && (
+                      <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 text-[11px] text-blue-300 space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-[13px] text-blue-200">{selectedPkg.name}</p>
+                            {(selectedPkg as any).description && (
+                              <p className="text-blue-300/70 mt-0.5">{(selectedPkg as any).description}</p>
+                            )}
                           </div>
+                          {(selectedPkg as any).price > 0 && (
+                            <span className="shrink-0 text-lg font-black text-emerald-400 tabular-nums">
+                              {((selectedPkg as any).price as number).toLocaleString("ru")} ₽
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {selectedPkg.zoneIds.map(zid => {
+                            const z = zones.find(zn => zn.id === zid);
+                            return (
+                              <span key={zid} className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-[10px] font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: z?.color ?? "#6366f1" }} />
+                                {z?.name ?? `Зона ${zid}`}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <div className="text-[10px] text-blue-300/60 flex items-center gap-3">
+                          <span>Макс. {selectedPkg.maxGuests} гостей</span>
+                          <span>· {selectedPkg.zoneIds.length} {selectedPkg.zoneIds.length === 1 ? "зона" : selectedPkg.zoneIds.length < 5 ? "зоны" : "зон"}</span>
+                          <span className="text-amber-400/70">Фиксированная цена</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Custom event ── */}
+                {form.customEvent && (
+                  <div className="space-y-3 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+                    <p className="text-[10px] font-semibold text-purple-300/80 uppercase tracking-wider">Выберите зоны</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {zones.map(zone => {
+                        const isChosen = form.customEventZoneIds.includes(zone.id);
+                        return (
+                          <button
+                            key={zone.id}
+                            type="button"
+                            onClick={() => {
+                              setForm(f => {
+                                const ids = isChosen
+                                  ? f.customEventZoneIds.filter(id => id !== zone.id)
+                                  : [...f.customEventZoneIds, zone.id];
+                                const zst = { ...f.zoneSessionTypes };
+                                if (isChosen) delete zst[zone.id];
+                                return { ...f, customEventZoneIds: ids, zoneSessionTypes: zst };
+                              });
+                            }}
+                            className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all",
+                              isChosen
+                                ? "border-purple-500/50 bg-purple-500/15 text-purple-300"
+                                : "border-border/50 text-muted-foreground hover:border-purple-500/40 hover:text-purple-300"
+                            )}
+                          >
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: zone.color }} />
+                            {zone.name}
+                          </button>
                         );
                       })}
                     </div>
+
+                    {/* Per-zone session type selectors */}
+                    {form.customEventZoneIds.length > 0 && (
+                      <div className="space-y-2 pt-1 border-t border-purple-500/15">
+                        <p className="text-[10px] font-semibold text-purple-300/70 uppercase tracking-wider">Тип сеанса по зонам</p>
+                        {form.customEventZoneIds.map(zid => {
+                          const zone = zones.find(z => z.id === zid);
+                          const avail = sessionTypesForZone(zid);
+                          return (
+                            <div key={zid} className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: zone?.color ?? "#6366f1" }} />
+                              <span className="w-20 truncate text-purple-200 font-medium text-[11px]">{zone?.name ?? `Зона ${zid}`}</span>
+                              <Select
+                                value={form.zoneSessionTypes[zid] ?? ""}
+                                onValueChange={(v) => setForm(f => ({ ...f, zoneSessionTypes: { ...f.zoneSessionTypes, [zid]: v } }))}
+                              >
+                                <SelectTrigger className="h-7 text-[11px] flex-1 bg-purple-500/10 border-purple-500/30">
+                                  <SelectValue placeholder="Выбрать сеанс" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {avail.map(st => (
+                                    <SelectItem key={st.id} value={st.id.toString()} className="text-xs">
+                                      {st.name} — {((st as any).price ?? SESSION_PRICE[st.id] ?? 0).toLocaleString("ru")} ₽/чел.
+                                    </SelectItem>
+                                  ))}
+                                  {avail.length === 0 && (
+                                    <div className="px-3 py-2 text-xs text-muted-foreground">Нет доступных сеансов</div>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
