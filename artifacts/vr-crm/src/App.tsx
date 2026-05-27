@@ -21,6 +21,7 @@ import Network from "@/pages/network";
 import Pricing from "@/pages/pricing";
 import Cameras from "@/pages/cameras";
 import Inbox from "@/pages/inbox";
+import AiConsulting from "@/pages/ai-consulting";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ function Router() {
         <Route path="/profile" component={Profile} />
         <Route path="/cameras" component={Cameras} />
         <Route path="/inbox" component={Inbox} />
+        <Route path="/ai-consulting" component={AiConsulting} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

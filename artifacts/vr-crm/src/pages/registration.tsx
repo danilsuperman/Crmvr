@@ -1141,6 +1141,48 @@ export default function Registration() {
                         onChange={blocks => setGameMed(game.id, m => ({ ...m, descBlocks: blocks }))}
                         label="Подробное описание игры"
                       />
+                      {settingsZones.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium">Арены для этой игры</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {settingsZones.map(zone => {
+                              const currentZoneIds: number[] = (game as any).zoneIds ?? [];
+                              const selected = currentZoneIds.includes(zone.id);
+                              return (
+                                <button
+                                  key={zone.id}
+                                  type="button"
+                                  onClick={() => setGames(gs => gs.map(g =>
+                                    g.id === game.id
+                                      ? {
+                                          ...g,
+                                          zoneIds: selected
+                                            ? currentZoneIds.filter(id => id !== zone.id)
+                                            : [...currentZoneIds, zone.id],
+                                        }
+                                      : g
+                                  ))}
+                                  className={cn(
+                                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all",
+                                    selected
+                                      ? "border-primary/60 bg-primary/10 text-foreground font-medium"
+                                      : "border-border/40 bg-muted/10 text-muted-foreground hover:bg-muted/20"
+                                  )}
+                                >
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: zone.color ?? undefined }} />
+                                  {zone.name}
+                                  {selected && <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            {((game as any).zoneIds as number[] | undefined)?.length
+                              ? `Показывается в ${((game as any).zoneIds as number[]).length} арен(ах)`
+                              : "Не выбрано — отображается во всех аренах"}
+                          </p>
+                        </div>
+                      )}
                       <Button size="sm" className="h-8 text-xs" onClick={() => toast.success("Медиа игры сохранено")}>
                         Сохранить медиа
                       </Button>

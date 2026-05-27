@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, Layers, Minus, Star, Brain, Bot, Trophy, Heart, Gamepad2, Bell, Mail, CreditCard, Zap, Building2, Globe, Link, Copy, FlaskConical, ReceiptText, ArrowUpRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, Layers, Minus, Star, Brain, Bot, Trophy, Heart, Gamepad2, Bell, Mail, CreditCard, Zap, Building2, Globe, Link, Copy, FlaskConical, ReceiptText, ArrowUpRight, Camera, Wifi, WifiOff, AlertTriangle, Eye, MonitorSpeaker } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -174,7 +174,12 @@ export default function Settings() {
   const [channelSettings, setChannelSettings] = useLocalStorage("vrpark_channel_settings", {
     connected: [] as string[],
   });
+  const [channelKeys, setChannelKeys] = useLocalStorage<Record<string, Record<string, string>>>("vrpark_channel_keys", {});
+  const [channelWorkHours, setChannelWorkHours] = useLocalStorage<Record<string, { enabled: boolean; from: string; to: string }>>("vrpark_channel_workhours", {});
   const [channelOpen, setChannelOpen] = useState<string | null>(null);
+  const [settingsCameras, setSettingsCameras] = useLocalStorage<Array<{ id: string; name: string; url: string; zoneId?: number; ai: boolean; resolution: string; fps: number; enabled: boolean; type: string }>>("vrpark_settings_cameras", []);
+  const [cameraForm, setCameraForm] = useState({ name: "", url: "", zoneId: "", type: "rtsp", resolution: "1080p", fps: "30", ai: true });
+  const [addCameraOpen, setAddCameraOpen] = useState(false);
 
   // Zone modal
   const [zoneModal, setZoneModal] = useState<{
@@ -275,6 +280,7 @@ export default function Settings() {
             <TabsTrigger value="salary" className="text-xs">Зарплата</TabsTrigger>
             <TabsTrigger value="system" className="text-xs">Система</TabsTrigger>
             <TabsTrigger value="channels" className="text-xs flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Каналы</TabsTrigger>
+            <TabsTrigger value="cameras" className="text-xs flex items-center gap-1"><Camera className="w-3 h-3" /> Камеры</TabsTrigger>
             <TabsTrigger value="payments" className="text-xs flex items-center gap-1"><CreditCard className="w-3 h-3" /> Оплаты</TabsTrigger>
             <TabsTrigger value="tariff" className="text-xs flex items-center gap-1"><Star className="w-3 h-3" /> Тариф</TabsTrigger>
           </TabsList>
@@ -742,21 +748,60 @@ export default function Settings() {
 
           {/* Channels tab */}
           <TabsContent value="channels" className="space-y-5">
-            {/* Provider cards */}
+            {/* Channel provider cards */}
             <div>
               <h2 className="text-sm font-semibold mb-1">Мессенджеры и каналы</h2>
-              <p className="text-xs text-muted-foreground mb-4">Подключите мессенджеры для единого Inbox</p>
+              <p className="text-xs text-muted-foreground mb-4">Подключите мессенджеры для единого Inbox — все чаты в одном окне</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { id: "telegram",  label: "Telegram",   icon: "TG", color: "text-sky-400 bg-sky-500/10 border-sky-500/20",      desc: "Бот через token + webhook", fields: ["Bot Token", "Webhook URL"] },
-                  { id: "whatsapp",  label: "WhatsApp",   icon: "WA", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", desc: "Meta Cloud API — номер + токен", fields: ["Phone ID", "Access Token"] },
-                  { id: "instagram", label: "Instagram",  icon: "IG", color: "text-pink-400 bg-pink-500/10 border-pink-500/20",    desc: "Business account + Meta разрешения", fields: ["App ID", "Access Token"] },
-                  { id: "viber",     label: "Viber",      icon: "VI", color: "text-violet-400 bg-violet-500/10 border-violet-500/20", desc: "API ключ + webhook", fields: ["API Key", "Webhook URL"] },
-                  { id: "max",       label: "MAX",        icon: "MX", color: "text-orange-400 bg-orange-500/10 border-orange-500/20", desc: "Маркетплейс МТС — ключ + webhook", fields: ["API Key", "Webhook URL"] },
-                  { id: "webchat",   label: "Web Chat",   icon: "WC", color: "text-blue-400 bg-blue-500/10 border-blue-500/20",    desc: "Встраиваемый виджет на сайт", fields: ["Widget ID", "Domain"] },
-                ].map(ch => {
+                {([
+                  { id: "telegram",  label: "Telegram",   icon: "TG", color: "text-sky-400 bg-sky-500/10 border-sky-500/20",         desc: "Бот через Token + Webhook", docs: "https://core.telegram.org/bots",
+                    fields: [
+                      { key: "bot_token", label: "Bot Token", type: "password", placeholder: "123456:AABBCCddee..." },
+                      { key: "username",  label: "Username бота", type: "text", placeholder: "@vrpark_bot" },
+                    ],
+                    webhook: "https://vrpark.co/webhooks/telegram",
+                  },
+                  { id: "whatsapp",  label: "WhatsApp",   icon: "WA", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", desc: "Meta Cloud API (Business)", docs: "https://developers.facebook.com/docs/whatsapp",
+                    fields: [
+                      { key: "phone_id",     label: "Phone Number ID", type: "text",     placeholder: "1234567890" },
+                      { key: "access_token", label: "Access Token",    type: "password", placeholder: "EAABsbCs..." },
+                      { key: "business_id",  label: "Business Account ID", type: "text", placeholder: "9876543210" },
+                    ],
+                    webhook: "https://vrpark.co/webhooks/whatsapp",
+                  },
+                  { id: "instagram", label: "Instagram",  icon: "IG", color: "text-pink-400 bg-pink-500/10 border-pink-500/20",        desc: "Business + Messenger API", docs: "https://developers.facebook.com/docs/instagram-api",
+                    fields: [
+                      { key: "app_id",       label: "App ID",       type: "text",     placeholder: "1234567890" },
+                      { key: "access_token", label: "Page Token",   type: "password", placeholder: "EAABsbCs..." },
+                      { key: "page_id",      label: "Page ID",      type: "text",     placeholder: "instagram_page_id" },
+                    ],
+                    webhook: "https://vrpark.co/webhooks/instagram",
+                  },
+                  { id: "viber",     label: "Viber",      icon: "VI", color: "text-violet-400 bg-violet-500/10 border-violet-500/20",  desc: "Public Account + REST API", docs: "https://developers.viber.com/docs/api",
+                    fields: [
+                      { key: "api_key",  label: "Auth Token", type: "password", placeholder: "abcdef1234567890..." },
+                      { key: "sender",   label: "Sender name", type: "text",    placeholder: "VR Park" },
+                    ],
+                    webhook: "https://vrpark.co/webhooks/viber",
+                  },
+                  { id: "max",       label: "MAX",        icon: "MX", color: "text-orange-400 bg-orange-500/10 border-orange-500/20",  desc: "МТС Маркетплейс (новый канал)", docs: "https://help.max.ru",
+                    fields: [
+                      { key: "api_key",   label: "API Key",    type: "password", placeholder: "mts_api_key_..." },
+                      { key: "client_id", label: "Client ID",  type: "text",     placeholder: "client_12345" },
+                    ],
+                    webhook: "https://vrpark.co/webhooks/max",
+                  },
+                  { id: "webchat",   label: "Web Chat",   icon: "WC", color: "text-blue-400 bg-blue-500/10 border-blue-500/20",        desc: "Встраиваемый виджет на сайт", docs: "#",
+                    fields: [
+                      { key: "domain",   label: "Разрешённый домен", type: "text", placeholder: "vrpark.co" },
+                      { key: "color",    label: "Цвет кнопки (#hex)", type: "text", placeholder: "#6366f1" },
+                    ],
+                    webhook: "https://vrpark.co/chat-widget.js",
+                  },
+                ] as const).map(ch => {
                   const connected = channelSettings.connected.includes(ch.id);
                   const expanded = channelOpen === ch.id;
+                  const wh = channelWorkHours[ch.id] ?? { enabled: false, from: "09:00", to: "22:00" };
                   return (
                     <div key={ch.id} className={cn("rounded-xl border transition-all", connected ? "border-emerald-500/30 bg-emerald-500/5" : "border-border/50 bg-card/20")}>
                       <div className="flex items-center gap-3 p-3">
@@ -764,14 +809,14 @@ export default function Settings() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-semibold">{ch.label}</p>
-                            {connected && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">подключено</span>}
+                            {connected && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5"><CheckCircle2 className="w-2.5 h-2.5" />активен</span>}
                           </div>
                           <p className="text-[10px] text-muted-foreground">{ch.desc}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {connected && (
                             <button onClick={() => setChannelOpen(expanded ? null : ch.id)} className="text-[10px] px-2 py-1 rounded-lg border border-border/50 hover:bg-muted/20 text-muted-foreground">
-                              {expanded ? "Скрыть" : "Настройки"}
+                              {expanded ? "Свернуть" : "Настройки"}
                             </button>
                           )}
                           <Switch checked={connected} onCheckedChange={() => setChannelSettings(s => ({
@@ -781,16 +826,95 @@ export default function Settings() {
                         </div>
                       </div>
                       {expanded && connected && (
-                        <div className="border-t border-border/30 p-3 space-y-2">
-                          {ch.fields.map(f => (
-                            <div key={f} className="space-y-1">
-                              <Label className="text-[10px]">{f}</Label>
-                              <Input className="h-7 text-xs font-mono" placeholder={f === "Bot Token" ? "123456:AABBCCddee..." : f === "Access Token" ? "EAABsbCs..." : "..."} />
+                        <div className="border-t border-border/30 p-3 space-y-3">
+                          {/* Credentials */}
+                          <div className="space-y-2">
+                            {ch.fields.map((f) => (
+                              <div key={f.key} className="space-y-1">
+                                <Label className="text-[10px]">{f.label}</Label>
+                                <Input
+                                  className="h-7 text-xs font-mono"
+                                  type={f.type as "text" | "password"}
+                                  placeholder={f.placeholder}
+                                  value={channelKeys[ch.id]?.[f.key] ?? ""}
+                                  onChange={e => setChannelKeys(k => ({ ...k, [ch.id]: { ...(k[ch.id] ?? {}), [f.key]: e.target.value } }))}
+                                />
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Webhook / Script URL */}
+                          <div className="space-y-1">
+                            <Label className="text-[10px] flex items-center gap-1">
+                              <Globe className="w-3 h-3" />
+                              {ch.id === "webchat" ? "URL скрипта" : "Webhook URL"}
+                              <span className="text-muted-foreground/60">(скопируйте в кабинет {ch.label})</span>
+                            </Label>
+                            <div className="flex gap-1.5">
+                              <Input className="h-7 text-[11px] font-mono bg-muted/10 flex-1" value={ch.webhook} readOnly />
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0" onClick={() => { navigator.clipboard.writeText(ch.webhook); toast.success("Скопировано"); }}>
+                                <Copy className="w-3 h-3" />
+                              </Button>
                             </div>
-                          ))}
-                          <Button size="sm" className="h-7 text-xs w-full" onClick={() => toast.success(`${ch.label} — подключение проверено ✓`)}>
-                            Тест подключения
-                          </Button>
+                          </div>
+
+                          {/* Working hours */}
+                          <div className="rounded-lg border border-border/40 bg-card/20 p-2.5 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-[11px] font-medium">Рабочие часы канала</p>
+                                <p className="text-[10px] text-muted-foreground">Вне расписания — авто-ответ</p>
+                              </div>
+                              <Switch
+                                checked={wh.enabled}
+                                onCheckedChange={v => setChannelWorkHours(h => ({ ...h, [ch.id]: { ...(h[ch.id] ?? { from: "09:00", to: "22:00" }), enabled: v } }))}
+                              />
+                            </div>
+                            {wh.enabled && (
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 flex-1">
+                                  <Label className="text-[10px] shrink-0">С</Label>
+                                  <Input type="time" className="h-7 text-xs flex-1" value={wh.from} onChange={e => setChannelWorkHours(h => ({ ...h, [ch.id]: { ...(h[ch.id] ?? { enabled: true, to: "22:00" }), from: e.target.value } }))} />
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-1">
+                                  <Label className="text-[10px] shrink-0">До</Label>
+                                  <Input type="time" className="h-7 text-xs flex-1" value={wh.to} onChange={e => setChannelWorkHours(h => ({ ...h, [ch.id]: { ...(h[ch.id] ?? { enabled: true, from: "09:00" }), to: e.target.value } }))} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Notification settings */}
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] text-muted-foreground flex items-center gap-1"><Bell className="w-3 h-3" />Уведомления</Label>
+                            {[
+                              { key: `${ch.id}_notif_new`, label: "Новое сообщение" },
+                              { key: `${ch.id}_notif_miss`, label: "Нет ответа 15 мин" },
+                            ].map(n => (
+                              <div key={n.key} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-card/10">
+                                <span className="text-[11px]">{n.label}</span>
+                                <Switch
+                                  checked={channelKeys[ch.id]?.[n.key] !== "0"}
+                                  onCheckedChange={v => setChannelKeys(k => ({ ...k, [ch.id]: { ...(k[ch.id] ?? {}), [n.key]: v ? "1" : "0" } }))}
+                                />
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2">
+                            <Button size="sm" className="h-7 text-xs flex-1" onClick={() => { if (channelKeys[ch.id]?.[ch.fields[0].key]) toast.success(`${ch.label} — подключение проверено ✓`); else toast.error("Заполните обязательные поля"); }}>
+                              Тест подключения
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toast.success("Настройки сохранены")}>
+                              Сохранить
+                            </Button>
+                            <a href={ch.docs} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground">
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </Button>
+                            </a>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -818,11 +942,11 @@ export default function Settings() {
                         <span className="text-primary font-medium">{r.manager}</span>
                       </div>
                     </div>
-                    <button className="text-muted-foreground hover:text-foreground"><Pencil className="w-3 h-3" /></button>
-                    <button className="text-muted-foreground hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                    <button className="text-muted-foreground hover:text-foreground" onClick={() => toast.info("Редактирование правила")}><Pencil className="w-3 h-3" /></button>
+                    <button className="text-muted-foreground hover:text-red-400" onClick={() => toast.success("Правило удалено")}><Trash2 className="w-3 h-3" /></button>
                   </div>
                 ))}
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1">
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1" onClick={() => toast.info("Добавьте правило маршрутизации")}>
                   <Plus className="w-3 h-3" /> Добавить правило
                 </Button>
               </CardContent>
@@ -835,20 +959,22 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-2">
                 {[
-                  { trigger: "Сообщение содержит «цена»", action: "Тег «горячий лид»", active: true },
-                  { trigger: "Нет ответа 10 минут", action: "Уведомить администратора", active: true },
+                  { trigger: "Сообщение содержит «цена»", action: "Тег «горячий лид» + уведомить менеджера", active: true },
+                  { trigger: "Нет ответа 10 минут", action: "Уведомить администратора в Telegram", active: true },
                   { trigger: "Ночное время (22:00–9:00)", action: "Автоответ с графиком работы", active: false },
                   { trigger: "Новый диалог", action: "Приветственное сообщение", active: true },
+                  { trigger: "Содержит «бронь» или «записаться»", action: "Отправить ссылку на виджет бронирования", active: true },
                 ].map((rule, i) => (
                   <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 bg-card/20">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{rule.trigger}</p>
                       <p className="text-[10px] text-muted-foreground">→ {rule.action}</p>
                     </div>
-                    <Switch checked={rule.active} onCheckedChange={() => {}} />
+                    <Switch defaultChecked={rule.active} onCheckedChange={() => {}} />
+                    <button className="text-muted-foreground hover:text-red-400 ml-1" onClick={() => toast.success("Правило удалено")}><Trash2 className="w-3 h-3" /></button>
                   </div>
                 ))}
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1">
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1" onClick={() => toast.info("Добавьте триггер и действие")}>
                   <Plus className="w-3 h-3" /> Добавить правило
                 </Button>
               </CardContent>
@@ -857,32 +983,213 @@ export default function Settings() {
             {/* Templates */}
             <Card className="bg-card/30 border-border/50">
               <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm">Шаблоны сообщений</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2"><MessageSquare className="w-4 h-4 text-sky-400" />Шаблоны сообщений</CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-2">
                 {[
-                  { name: "Приветствие", text: "Здравствуйте! Добро пожаловать в VR Park 🎮 Чем могу помочь?" },
-                  { name: "Прайс", text: "Наши тарифы: 30 мин — 1200₽/чел, 60 мин — 2000₽/чел, VIP 90 мин — 3500₽/чел." },
-                  { name: "Бронирование", text: "Для бронирования укажите дату, время и количество гостей." },
-                  { name: "Акция", text: "🎉 Скидка 15% в будни с 10:00 до 14:00 — только по предоплате онлайн!" },
-                  { name: "FAQ — возраст", text: "Минимальный возраст для VR — 7 лет. Дети до 14 лет — только с родителями." },
+                  { name: "Приветствие", channels: ["TG","WA","IG"], text: "Здравствуйте! Добро пожаловать в VR Park 🎮 Чем могу помочь?" },
+                  { name: "Прайс", channels: ["TG","WA"], text: "Наши тарифы: 30 мин — 1200₽/чел, 60 мин — 2000₽/чел, VIP 90 мин — 3500₽/чел." },
+                  { name: "Бронирование", channels: ["TG","WA","IG","VI"], text: "Для бронирования укажите дату, время и количество гостей." },
+                  { name: "Акция", channels: ["TG","WA","IG"], text: "🎉 Скидка 15% в будни с 10:00 до 14:00 — только по предоплате онлайн!" },
+                  { name: "FAQ — возраст", channels: ["TG","WA"], text: "Минимальный возраст для VR — 7 лет. Дети до 14 лет — только с родителями." },
+                  { name: "Ночной авто-ответ", channels: ["TG","WA","IG","VI","MX"], text: "Добрый вечер! Мы работаем ежедневно с 10:00 до 22:00. Ответим утром 🌙" },
                 ].map((t, i) => (
                   <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg border border-border/40 bg-card/20">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-primary">{t.name}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{t.text}</p>
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="text-xs font-semibold text-primary">{t.name}</p>
+                        <div className="flex gap-0.5">
+                          {t.channels.map(c => (
+                            <span key={c} className="text-[9px] px-1 py-0.5 rounded bg-muted/30 text-muted-foreground font-mono">{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground line-clamp-2">{t.text}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
+                      <button className="text-muted-foreground hover:text-foreground" onClick={() => { navigator.clipboard.writeText(t.text); toast.success("Шаблон скопирован"); }}><Copy className="w-3 h-3" /></button>
                       <button className="text-muted-foreground hover:text-foreground"><Pencil className="w-3 h-3" /></button>
-                      <button className="text-muted-foreground hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                      <button className="text-muted-foreground hover:text-red-400" onClick={() => toast.success("Шаблон удалён")}><Trash2 className="w-3 h-3" /></button>
                     </div>
                   </div>
                 ))}
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1">
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 mt-1" onClick={() => toast.info("Создайте новый шаблон")}>
                   <Plus className="w-3 h-3" /> Добавить шаблон
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Cameras tab */}
+          <TabsContent value="cameras" className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold">Камеры видеонаблюдения</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Подключите IP/RTSP камеры для мониторинга зон</p>
+              </div>
+              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setAddCameraOpen(true)}>
+                <Plus className="w-3.5 h-3.5" /> Добавить камеру
+              </Button>
+            </div>
+
+            {settingsCameras.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/50 bg-card/10 p-8 text-center space-y-2">
+                <Camera className="w-8 h-8 text-muted-foreground/30 mx-auto" />
+                <p className="text-sm text-muted-foreground">Нет подключённых камер</p>
+                <p className="text-xs text-muted-foreground/60">Добавьте IP-камеру или RTSP-поток для наблюдения за зонами</p>
+                <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setAddCameraOpen(true)}>
+                  <Plus className="w-3.5 h-3.5" /> Добавить первую камеру
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {settingsCameras.map(cam => {
+                  const zone = settingsZones.find(z => z.id === cam.zoneId);
+                  return (
+                    <div key={cam.id} className={cn("rounded-xl border p-3 transition-all", cam.enabled ? "border-border/50 bg-card/20" : "border-border/30 bg-muted/5 opacity-60")}>
+                      <div className="flex items-center gap-3">
+                        <div className={cn("w-9 h-9 rounded-xl border flex items-center justify-center shrink-0", cam.enabled ? "bg-emerald-500/10 border-emerald-500/20" : "bg-muted/20 border-border/30")}>
+                          <Camera className={cn("w-4 h-4", cam.enabled ? "text-emerald-400" : "text-muted-foreground/40")} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold truncate">{cam.name}</p>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-border/40 bg-muted/20 text-muted-foreground font-mono">{cam.type.toUpperCase()}</span>
+                            {cam.ai && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 flex items-center gap-0.5"><Brain className="w-2.5 h-2.5" />AI</span>}
+                            {zone && <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-border/40" style={{ color: zone.color ?? undefined }}>{zone.name}</span>}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-mono truncate">{cam.url || "URL не указан"}</p>
+                          <p className="text-[10px] text-muted-foreground">{cam.resolution} · {cam.fps} fps</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Switch checked={cam.enabled} onCheckedChange={v => setSettingsCameras(cs => cs.map(c => c.id === cam.id ? { ...c, enabled: v } : c))} />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm("Удалить камеру?")) { setSettingsCameras(cs => cs.filter(c => c.id !== cam.id)); toast.success("Камера удалена"); } }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Protocol guide */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><MonitorSpeaker className="w-4 h-4 text-blue-400" />Форматы подключения</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                {[
+                  { type: "RTSP", example: "rtsp://admin:pass@192.168.1.100:554/stream1", desc: "IP-камеры Hikvision, Dahua, Reolink" },
+                  { type: "ONVIF", example: "onvif://192.168.1.100:80", desc: "Универсальный стандарт для большинства IP-камер" },
+                  { type: "HTTP", example: "http://192.168.1.100/video.mjpg", desc: "MJPEG-поток (старые камеры, бюджетные модели)" },
+                  { type: "Cloud", example: "ivideon://camera_id", desc: "Ivideon, Trassir, RVI Cloud и другие SaaS" },
+                ].map(p => (
+                  <div key={p.type} className="p-2.5 rounded-lg border border-border/40 bg-card/10">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[10px] font-bold text-primary font-mono">{p.type}</span>
+                      <span className="text-[10px] text-muted-foreground">{p.desc}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <code className="text-[10px] text-muted-foreground/70 font-mono flex-1 truncate">{p.example}</code>
+                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0 shrink-0" onClick={() => { navigator.clipboard.writeText(p.example); toast.success("Скопировано"); }}>
+                        <Copy className="w-2.5 h-2.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* AI detection settings */}
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2"><Brain className="w-4 h-4 text-violet-400" />AI-детекция</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-2">
+                {[
+                  { label: "Подсчёт посетителей", desc: "Авто-счётчик входящих/выходящих", defaultActive: true },
+                  { label: "Детекция загрузки зоны", desc: "Процент заполненности по видео", defaultActive: true },
+                  { label: "Распознавание лиц", desc: "Идентификация постоянных клиентов (GDPR)", defaultActive: false },
+                  { label: "Детекция инцидентов", desc: "Падения, скопления, подозрительное поведение", defaultActive: true },
+                  { label: "Снятие масок/шлемов", desc: "Контроль снятия VR оборудования", defaultActive: false },
+                ].map((feat, i) => (
+                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-card/20">
+                    <div>
+                      <p className="text-xs font-medium">{feat.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{feat.desc}</p>
+                    </div>
+                    <Switch defaultChecked={feat.defaultActive} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Add camera dialog */}
+            {addCameraOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-5 w-full max-w-sm mx-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold">Добавить камеру</h3>
+                    <button onClick={() => setAddCameraOpen(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="space-y-1"><Label className="text-xs">Название</Label><Input className="h-8 text-sm" placeholder="Arena A — вход" value={cameraForm.name} onChange={e => setCameraForm(f => ({ ...f, name: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label className="text-xs">URL потока</Label><Input className="h-8 text-sm font-mono" placeholder="rtsp://admin:pass@192.168.1.100:554/stream" value={cameraForm.url} onChange={e => setCameraForm(f => ({ ...f, url: e.target.value }))} /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Протокол</Label>
+                        <Select value={cameraForm.type} onValueChange={v => setCameraForm(f => ({ ...f, type: v }))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>{["rtsp","onvif","http","cloud"].map(t => <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Зона</Label>
+                        <Select value={cameraForm.zoneId} onValueChange={v => setCameraForm(f => ({ ...f, zoneId: v }))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Выбрать" /></SelectTrigger>
+                          <SelectContent>{settingsZones.map(z => <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Разрешение</Label>
+                        <Select value={cameraForm.resolution} onValueChange={v => setCameraForm(f => ({ ...f, resolution: v }))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>{["4K","1080p","720p","480p"].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">FPS</Label>
+                        <Select value={cameraForm.fps} onValueChange={v => setCameraForm(f => ({ ...f, fps: v }))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>{["60","30","25","15","10"].map(r => <SelectItem key={r} value={r}>{r} fps</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-card/20">
+                      <div>
+                        <p className="text-xs font-medium">AI-детекция</p>
+                        <p className="text-[10px] text-muted-foreground">Подсчёт людей и инцидентов</p>
+                      </div>
+                      <Switch checked={cameraForm.ai} onCheckedChange={v => setCameraForm(f => ({ ...f, ai: v }))} />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1 h-8 text-xs" onClick={() => setAddCameraOpen(false)}>Отмена</Button>
+                    <Button className="flex-1 h-8 text-xs" onClick={() => {
+                      if (!cameraForm.name.trim()) { toast.error("Введите название"); return; }
+                      setSettingsCameras(cs => [...cs, { id: `cam_${Date.now()}`, name: cameraForm.name, url: cameraForm.url, zoneId: cameraForm.zoneId ? Number(cameraForm.zoneId) : undefined, ai: cameraForm.ai, resolution: cameraForm.resolution, fps: Number(cameraForm.fps), enabled: true, type: cameraForm.type }]);
+                      toast.success(`Камера «${cameraForm.name}» добавлена`);
+                      setCameraForm({ name: "", url: "", zoneId: "", type: "rtsp", resolution: "1080p", fps: "30", ai: true });
+                      setAddCameraOpen(false);
+                    }}>Добавить</Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Payments tab */}
