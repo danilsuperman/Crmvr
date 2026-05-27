@@ -1044,7 +1044,7 @@ export default function Settings() {
             ) : (
               <div className="space-y-3">
                 {settingsCameras.map(cam => {
-                  const zone = settingsZones.find(z => z.id === cam.zoneId);
+                  const zone = zones.find((z: any) => z.id === cam.zoneId);
                   return (
                     <div key={cam.id} className={cn("rounded-xl border p-3 transition-all", cam.enabled ? "border-border/50 bg-card/20" : "border-border/30 bg-muted/5 opacity-60")}>
                       <div className="flex items-center gap-3">
@@ -1126,70 +1126,6 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            {/* Add camera dialog */}
-            {addCameraOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-                <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-5 w-full max-w-sm mx-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold">Добавить камеру</h3>
-                    <button onClick={() => setAddCameraOpen(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="space-y-1"><Label className="text-xs">Название</Label><Input className="h-8 text-sm" placeholder="Arena A — вход" value={cameraForm.name} onChange={e => setCameraForm(f => ({ ...f, name: e.target.value }))} /></div>
-                    <div className="space-y-1"><Label className="text-xs">URL потока</Label><Input className="h-8 text-sm font-mono" placeholder="rtsp://admin:pass@192.168.1.100:554/stream" value={cameraForm.url} onChange={e => setCameraForm(f => ({ ...f, url: e.target.value }))} /></div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Протокол</Label>
-                        <Select value={cameraForm.type} onValueChange={v => setCameraForm(f => ({ ...f, type: v }))}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>{["rtsp","onvif","http","cloud"].map(t => <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Зона</Label>
-                        <Select value={cameraForm.zoneId} onValueChange={v => setCameraForm(f => ({ ...f, zoneId: v }))}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Выбрать" /></SelectTrigger>
-                          <SelectContent>{settingsZones.map(z => <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Разрешение</Label>
-                        <Select value={cameraForm.resolution} onValueChange={v => setCameraForm(f => ({ ...f, resolution: v }))}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>{["4K","1080p","720p","480p"].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">FPS</Label>
-                        <Select value={cameraForm.fps} onValueChange={v => setCameraForm(f => ({ ...f, fps: v }))}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>{["60","30","25","15","10"].map(r => <SelectItem key={r} value={r}>{r} fps</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-card/20">
-                      <div>
-                        <p className="text-xs font-medium">AI-детекция</p>
-                        <p className="text-[10px] text-muted-foreground">Подсчёт людей и инцидентов</p>
-                      </div>
-                      <Switch checked={cameraForm.ai} onCheckedChange={v => setCameraForm(f => ({ ...f, ai: v }))} />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1 h-8 text-xs" onClick={() => setAddCameraOpen(false)}>Отмена</Button>
-                    <Button className="flex-1 h-8 text-xs" onClick={() => {
-                      if (!cameraForm.name.trim()) { toast.error("Введите название"); return; }
-                      setSettingsCameras(cs => [...cs, { id: `cam_${Date.now()}`, name: cameraForm.name, url: cameraForm.url, zoneId: cameraForm.zoneId ? Number(cameraForm.zoneId) : undefined, ai: cameraForm.ai, resolution: cameraForm.resolution, fps: Number(cameraForm.fps), enabled: true, type: cameraForm.type }]);
-                      toast.success(`Камера «${cameraForm.name}» добавлена`);
-                      setCameraForm({ name: "", url: "", zoneId: "", type: "rtsp", resolution: "1080p", fps: "30", ai: true });
-                      setAddCameraOpen(false);
-                    }}>Добавить</Button>
-                  </div>
-                </div>
-              </div>
-            )}
           </TabsContent>
 
           {/* Payments tab */}
@@ -1894,6 +1830,68 @@ export default function Settings() {
             }}>
               Добавить пользователя
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Camera add dialog */}
+      <Dialog open={addCameraOpen} onOpenChange={setAddCameraOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Добавить камеру</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="space-y-1"><Label className="text-xs">Название</Label><Input className="h-8 text-sm" placeholder="Arena A — вход" value={cameraForm.name} onChange={e => setCameraForm(f => ({ ...f, name: e.target.value }))} /></div>
+            <div className="space-y-1"><Label className="text-xs">URL потока</Label><Input className="h-8 text-sm font-mono" placeholder="rtsp://admin:pass@192.168.1.100:554/stream" value={cameraForm.url} onChange={e => setCameraForm(f => ({ ...f, url: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Протокол</Label>
+                <Select value={cameraForm.type} onValueChange={v => setCameraForm(f => ({ ...f, type: v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{["rtsp","onvif","http","cloud"].map(t => <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Зона</Label>
+                <Select value={cameraForm.zoneId} onValueChange={v => setCameraForm(f => ({ ...f, zoneId: v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Выбрать" /></SelectTrigger>
+                  <SelectContent>{zones.map((z: any) => <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Разрешение</Label>
+                <Select value={cameraForm.resolution} onValueChange={v => setCameraForm(f => ({ ...f, resolution: v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{["4K","1080p","720p","480p"].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">FPS</Label>
+                <Select value={cameraForm.fps} onValueChange={v => setCameraForm(f => ({ ...f, fps: v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{["60","30","25","15","10"].map(r => <SelectItem key={r} value={r}>{r} fps</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-muted/10">
+              <div>
+                <p className="text-xs font-medium">AI-детекция</p>
+                <p className="text-[10px] text-muted-foreground">Подсчёт людей и инцидентов</p>
+              </div>
+              <Switch checked={cameraForm.ai} onCheckedChange={v => setCameraForm(f => ({ ...f, ai: v }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-1">
+            <Button variant="outline" className="flex-1 h-9 text-sm" onClick={() => setAddCameraOpen(false)}>Отмена</Button>
+            <Button className="flex-1 h-9 text-sm" onClick={() => {
+              if (!cameraForm.name.trim()) { toast.error("Введите название"); return; }
+              setSettingsCameras(cs => [...cs, { id: `cam_${Date.now()}`, name: cameraForm.name, url: cameraForm.url, zoneId: cameraForm.zoneId ? Number(cameraForm.zoneId) : undefined, ai: cameraForm.ai, resolution: cameraForm.resolution, fps: Number(cameraForm.fps), enabled: true, type: cameraForm.type }]);
+              toast.success(`Камера «${cameraForm.name}» добавлена`);
+              setCameraForm({ name: "", url: "", zoneId: "", type: "rtsp", resolution: "1080p", fps: "30", ai: true });
+              setAddCameraOpen(false);
+            }}>Добавить</Button>
           </div>
         </DialogContent>
       </Dialog>
