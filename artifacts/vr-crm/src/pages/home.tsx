@@ -21,6 +21,11 @@ import {
   Map as MapIcon,
   Trash2,
   Package,
+  Copy,
+  Check,
+  Link2,
+  CreditCard,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -144,6 +149,19 @@ export default function Home() {
     { id: 1, name: "День рождения VIP", description: "Всё включено", maxGuests: 8, zoneIds: [1, 3] },
     { id: 2, name: "Корпоратив Standard", description: "Командный тимбилдинг", maxGuests: 20, zoneIds: [1, 2, 4] },
   ];
+
+  // Price per person per session type (₽)
+  const SESSION_PRICE: Record<number, number> = {
+    1: 1200,  // Стандарт 30 мин
+    2: 2000,  // Стандарт 60 мин
+    3: 3500,  // VIP 90 мин
+  };
+
+  // Flat package prices (₽)
+  const PACKAGE_PRICE: Record<number, number> = {
+    1: 35000, // День рождения VIP
+    2: 45000, // Корпоратив Standard
+  };
   const MOCK_BOOKINGS_HOME = [
     { id: 101, clientId: 1, clientName: "Андрей Смирнов", clientPhone: "+7 916 123-45-67", zoneId: 1, zoneName: "Arena A", zoneColor: "#6366f1", sessionTypeId: 2, sessionTypeName: "Стандарт 60 мин", sessionTypeColor: "#8b5cf6", packageId: null, startTime: `${dateStr}T10:00:00.000Z`, endTime: `${dateStr}T11:00:00.000Z`, guestsCount: 4, status: "confirmed", notes: null, adminName: "Анна" },
     { id: 102, clientId: 2, clientName: "Мария Козлова", clientPhone: "+7 903 987-65-43", zoneId: 2, zoneName: "Arena B", zoneColor: "#8b5cf6", sessionTypeId: 1, sessionTypeName: "Стандарт 30 мин", sessionTypeColor: "#6366f1", packageId: null, startTime: `${dateStr}T11:00:00.000Z`, endTime: `${dateStr}T12:00:00.000Z`, guestsCount: 3, status: "confirmed", notes: null, adminName: null },
@@ -255,6 +273,7 @@ export default function Home() {
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BookingFormState>(EMPTY_FORM);
 
@@ -393,6 +412,50 @@ export default function Home() {
   }, [form, editingId, packages, zones, sessionTypes, allLocalBookings, dateStr, setAllLocalBookings]);
 
   const selectedPkg = packages.find((p) => p.id === Number(form.packageId));
+
+  // ── Booking amount calculation ────────────────────────────────────────────
+  const bookingCalc = useMemo(() => {
+    const guests = parseInt(form.guestsCount) || 1;
+
+    // Duration in minutes from start/end time
+    const [sh, sm] = form.startTime.split(":").map(Number);
+    const [eh, em] = form.endTime.split(":").map(Number);
+    const durationMin = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+
+    if (form.isEvent && form.packageId) {
+      const pkgId = Number(form.packageId);
+      const pkgPrice = PACKAGE_PRICE[pkgId] ?? 0;
+      return { total: pkgPrice, pricePerPerson: null, guests, durationMin, type: "package" as const };
+    }
+
+    if (form.sessionTypeId) {
+      const stId = Number(form.sessionTypeId);
+      const pricePerPerson = SESSION_PRICE[stId] ?? 0;
+      const total = pricePerPerson * guests;
+      return { total, pricePerPerson, guests, durationMin, type: "session" as const };
+    }
+
+    // Fallback: time-based (40₽/мин × чел)
+    if (durationMin > 0) {
+      const pricePerPerson = Math.round(durationMin * 40);
+      const total = pricePerPerson * guests;
+      return { total, pricePerPerson, guests, durationMin, type: "time" as const };
+    }
+
+    return null;
+  }, [form.sessionTypeId, form.packageId, form.isEvent, form.guestsCount, form.startTime, form.endTime]);
+
+  const PREPAY_PERCENT = 30;
+  const prepayAmount = bookingCalc ? Math.round(bookingCalc.total * PREPAY_PERCENT / 100) : 0;
+
+  const handleCopyPayLink = () => {
+    const clientSlug = form.clientName.trim().toLowerCase().replace(/\s+/g, "-") || "client";
+    const link = `https://pay.vrpark.co/book/${clientSlug}-${Date.now().toString(36)}`;
+    navigator.clipboard.writeText(link).catch(() => {});
+    toast.success("Ссылка скопирована в буфер");
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2500);
+  };
 
   // Event dashboard data
   const eventDashData = useMemo(() => {
@@ -979,6 +1042,90 @@ export default function Home() {
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               />
             </div>
+
+            {/* ── Price summary block ───────────────────────────────── */}
+            {bookingCalc && bookingCalc.total > 0 && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+                {/* Header */}
+                <div className="flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-semibold text-emerald-400">Расчёт стоимости</span>
+                </div>
+
+                {/* Breakdown */}
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  {bookingCalc.type === "session" && bookingCalc.pricePerPerson !== null && (
+                    <div className="flex justify-between">
+                      <span>
+                        {sessionTypes.find(s => s.id === Number(form.sessionTypeId))?.name ?? "Сеанс"}
+                        {" × "}{bookingCalc.guests} гост.
+                      </span>
+                      <span>{bookingCalc.pricePerPerson.toLocaleString("ru")} ₽ / чел.</span>
+                    </div>
+                  )}
+                  {bookingCalc.type === "package" && (
+                    <div className="flex justify-between">
+                      <span>{selectedPkg?.name ?? "Пакет"}</span>
+                      <span>фиксированная цена</span>
+                    </div>
+                  )}
+                  {bookingCalc.type === "time" && bookingCalc.pricePerPerson !== null && (
+                    <div className="flex justify-between">
+                      <span>{bookingCalc.durationMin} мин × {bookingCalc.guests} гост.</span>
+                      <span>{bookingCalc.pricePerPerson.toLocaleString("ru")} ₽ / чел.</span>
+                    </div>
+                  )}
+                  {bookingCalc.durationMin > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground/70">Длительность</span>
+                      <span>{bookingCalc.durationMin >= 60
+                        ? `${Math.floor(bookingCalc.durationMin / 60)} ч ${bookingCalc.durationMin % 60 > 0 ? `${bookingCalc.durationMin % 60} мин` : ""}`.trim()
+                        : `${bookingCalc.durationMin} мин`
+                      }</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total */}
+                <div className="flex items-center justify-between pt-1.5 border-t border-emerald-500/20">
+                  <span className="text-sm font-bold">Итого</span>
+                  <span className="text-xl font-black text-emerald-400">
+                    {bookingCalc.total.toLocaleString("ru")} ₽
+                  </span>
+                </div>
+
+                {/* Prepay row */}
+                <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-2.5 py-2">
+                  <div>
+                    <p className="text-xs font-semibold">Предоплата {PREPAY_PERCENT}%</p>
+                    <p className="text-[10px] text-muted-foreground">Для подтверждения брони</p>
+                  </div>
+                  <span className="text-base font-black text-emerald-400">
+                    {prepayAmount.toLocaleString("ru")} ₽
+                  </span>
+                </div>
+
+                {/* Generate link button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "w-full h-8 text-xs gap-1.5 transition-all",
+                    linkCopied
+                      ? "border-emerald-500/50 text-emerald-400 bg-emerald-500/10"
+                      : "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                  )}
+                  onClick={handleCopyPayLink}
+                >
+                  {linkCopied ? (
+                    <><Check className="w-3.5 h-3.5" /> Ссылка скопирована!</>
+                  ) : (
+                    <><Link2 className="w-3.5 h-3.5" /> Сгенерировать ссылку предоплаты</>
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-2 mt-1">
