@@ -604,7 +604,7 @@ export default function Registration() {
   // Games
   const [gameFilter, setGameFilter] = useState("all");
   const [newGameOpen, setNewGameOpen] = useState(false);
-  const [gameForm, setGameForm] = useState({ name: "", genre: "Ритм", players: "1-4", duration: "30 мин", age: "7+", horror: false, desc: "" });
+  const [gameForm, setGameForm] = useState({ name: "", genre: "Ритм", players: "1-4", duration: "30 мин", age: "7+", horror: false, desc: "", zoneIds: [] as number[] });
 
   // Packages
   const [pkgOpen, setPkgOpen] = useState(false);
@@ -683,7 +683,7 @@ export default function Registration() {
     setGames(gs => [...gs, { id: `g_${Date.now()}`, ...gameForm, enabled: true }]);
     toast.success(`Игра "${gameForm.name}" добавлена`);
     setNewGameOpen(false);
-    setGameForm({ name: "", genre: "Ритм", players: "1-4", duration: "30 мин", age: "7+", horror: false, desc: "" });
+    setGameForm({ name: "", genre: "Ритм", players: "1-4", duration: "30 мин", age: "7+", horror: false, desc: "", zoneIds: [] });
   };
 
   // Packages handlers
@@ -1107,6 +1107,15 @@ export default function Registration() {
                         <span className="text-sm font-semibold">{game.name}</span>
                         <Badge variant="outline" className="text-[10px]">{game.genre}</Badge>
                         {game.horror && <Badge variant="destructive" className="text-[10px]">18+</Badge>}
+                        {((game as any).zoneIds as number[] | undefined)?.map(zid => {
+                          const z = settingsZones.find(sz => sz.id === zid);
+                          return z ? (
+                            <span key={zid} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border border-border/40 bg-muted/20" style={{ color: z.color ?? undefined }}>
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: z.color ?? undefined }} />
+                              {z.name}
+                            </span>
+                          ) : null;
+                        })}
                       </div>
                       <p className="text-xs text-muted-foreground">{game.players} игр. · {game.duration} · {game.age}</p>
                     </div>
@@ -1462,6 +1471,40 @@ export default function Registration() {
               <Label className="text-xs">Описание</Label>
               <Input className="h-9 text-sm" value={gameForm.desc} onChange={e => setGameForm(f => ({ ...f, desc: e.target.value }))} placeholder="Короткое описание..." />
             </div>
+            {settingsZones.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Зоны для этой игры</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {settingsZones.map(zone => {
+                    const selected = gameForm.zoneIds.includes(zone.id);
+                    return (
+                      <button
+                        key={zone.id}
+                        type="button"
+                        onClick={() => setGameForm(f => ({
+                          ...f,
+                          zoneIds: selected
+                            ? f.zoneIds.filter(id => id !== zone.id)
+                            : [...f.zoneIds, zone.id],
+                        }))}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-all",
+                          selected
+                            ? "border-primary/60 bg-primary/10 text-foreground"
+                            : "border-border/40 bg-muted/10 text-muted-foreground hover:bg-muted/20"
+                        )}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: zone.color ?? undefined }} />
+                        {zone.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {gameForm.zoneIds.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground">Не выбрано — игра будет отображаться во всех зонах</p>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <Label className="text-sm">Хоррор / 18+</Label>
               <Switch checked={gameForm.horror} onCheckedChange={v => setGameForm(f => ({ ...f, horror: v }))} />

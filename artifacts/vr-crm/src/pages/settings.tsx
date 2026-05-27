@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, Layers, Minus, Star, Brain, Bot, Trophy, Heart, Gamepad2, Bell, Mail, CreditCard, Zap, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, Layers, Minus, Star, Brain, Bot, Trophy, Heart, Gamepad2, Bell, Mail, CreditCard, Zap, Building2, Globe, Link, Copy, FlaskConical, ReceiptText, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -153,6 +153,9 @@ export default function Settings() {
     extraObjects: 0,
     extraEmployees: 0,
     modules: [] as string[],
+    autoPayEnabled: false,
+    autoPayDay: 1,
+    autoPayMethod: "card" as "card" | "invoice",
   });
   const [paySettings, setPaySettings] = useLocalStorage("vrpark_pay_settings", {
     activeProvider: "yukassa",
@@ -160,8 +163,13 @@ export default function Settings() {
     prepayPercent: 30,
     linkExpiryHours: 24,
     autoCancelHours: 48,
+    currency: "RUB" as "RUB" | "USD" | "EUR" | "KZT",
+    receiptEmail: "",
+    successUrl: "",
+    failUrl: "",
+    testMode: {} as Record<string, boolean>,
   });
-  const [payApiKeys, setPayApiKeys] = useState<Record<string, { key: string; secret: string; merchant: string }>>({});
+  const [payApiKeys, setPayApiKeys] = useLocalStorage<Record<string, { key: string; secret: string; merchant: string; webhookUrl: string }>>("vrpark_pay_api_keys", {});
   const [openProvider, setOpenProvider] = useState<string | null>(null);
   const [channelSettings, setChannelSettings] = useLocalStorage("vrpark_channel_settings", {
     connected: [] as string[],
@@ -882,18 +890,21 @@ export default function Settings() {
             <div>
               <h2 className="text-sm font-semibold mb-1">Платёжные системы</h2>
               <p className="text-xs text-muted-foreground mb-4">Подключите провайдера для приёма онлайн-оплат и генерации ссылок</p>
+              {/* Provider cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
-                  { id: "yukassa", name: "ЮKassa", desc: "Российский лидер онлайн-платежей", icon: "Ю", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-                  { id: "stripe", name: "Stripe", desc: "Международные платежи, карты Visa/MC", icon: "S", color: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
-                  { id: "tbank", name: "Т-Банк", desc: "Платежи через Тинькофф", icon: "Т", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
-                  { id: "sber", name: "СберПей", desc: "Сбербанк онлайн-оплата", icon: "С", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-                  { id: "cloud", name: "CloudPayments", desc: "Подписки и эквайринг", icon: "C", color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
-                  { id: "robokassa", name: "Robokassa", desc: "Гибкий эквайринг для бизнеса", icon: "R", color: "text-pink-400 bg-pink-500/10 border-pink-500/20" },
+                  { id: "yukassa", name: "ЮKassa", desc: "Российский лидер онлайн-платежей", icon: "Ю", color: "text-amber-400 bg-amber-500/10 border-amber-500/20", commission: "2.8%", docs: "https://yookassa.ru/developers" },
+                  { id: "stripe", name: "Stripe", desc: "Международные платежи, Visa/MC/MIR", icon: "S", color: "text-violet-400 bg-violet-500/10 border-violet-500/20", commission: "1.4% + 20₽", docs: "https://stripe.com/docs" },
+                  { id: "tbank", name: "Т-Банк", desc: "Платежи через Тинькофф", icon: "Т", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20", commission: "1.6%", docs: "https://developer.tbank.ru" },
+                  { id: "sber", name: "СберПей", desc: "Сбербанк онлайн-оплата", icon: "С", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", commission: "1.8%", docs: "https://developers.sber.ru" },
+                  { id: "cloud", name: "CloudPayments", desc: "Подписки и рекуррентный эквайринг", icon: "C", color: "text-blue-400 bg-blue-500/10 border-blue-500/20", commission: "2%", docs: "https://developers.cloudpayments.ru" },
+                  { id: "robokassa", name: "Robokassa", desc: "Гибкий эквайринг для бизнеса", icon: "R", color: "text-pink-400 bg-pink-500/10 border-pink-500/20", commission: "2.5%", docs: "https://docs.robokassa.ru" },
                 ].map(p => {
                   const connected = paySettings.connectedProviders.includes(p.id);
                   const isMain = paySettings.activeProvider === p.id;
                   const expanded = openProvider === p.id;
+                  const isTest = (paySettings.testMode ?? {})[p.id] ?? false;
+                  const webhookUrl = `https://vrpark.co/api/webhooks/${p.id}`;
                   return (
                     <div key={p.id} className={cn("rounded-xl border transition-all", connected ? "border-emerald-500/30 bg-emerald-500/5" : "border-border/50 bg-card/20")}>
                       <div className="flex items-center gap-3 p-3">
@@ -905,13 +916,18 @@ export default function Settings() {
                             <p className="text-sm font-semibold">{p.name}</p>
                             {connected && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">подключено</span>}
                             {isMain && connected && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">основной</span>}
+                            {connected && isTest && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20 flex items-center gap-0.5"><FlaskConical className="w-2.5 h-2.5" />тест</span>}
                           </div>
-                          <p className="text-[10px] text-muted-foreground">{p.desc}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[10px] text-muted-foreground">{p.desc}</p>
+                            <span className="text-[10px] text-muted-foreground/60">·</span>
+                            <span className="text-[10px] text-muted-foreground/70">комиссия {p.commission}</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {connected && (
                             <button onClick={() => setOpenProvider(expanded ? null : p.id)} className="text-[10px] px-2 py-1 rounded-lg border border-border/50 hover:bg-muted/20 text-muted-foreground">
-                              {expanded ? "Свернуть" : "Ключи"}
+                              {expanded ? "Свернуть" : "Настройки"}
                             </button>
                           )}
                           <Switch checked={connected} onCheckedChange={() => setPaySettings(s => ({
@@ -923,24 +939,56 @@ export default function Settings() {
                         </div>
                       </div>
                       {expanded && connected && (
-                        <div className="border-t border-border/30 p-3 space-y-2">
+                        <div className="border-t border-border/30 p-3 space-y-3">
+                          {/* Test/Live mode toggle */}
+                          <div className="flex items-center justify-between p-2 rounded-lg border border-border/40 bg-card/20">
+                            <div className="flex items-center gap-2">
+                              <FlaskConical className={cn("w-3.5 h-3.5", isTest ? "text-orange-400" : "text-muted-foreground")} />
+                              <div>
+                                <p className="text-[11px] font-medium">{isTest ? "Тестовый режим" : "Боевой режим"}</p>
+                                <p className="text-[10px] text-muted-foreground">{isTest ? "Реальные списания не происходят" : "Принимаются реальные платежи"}</p>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={isTest}
+                              onCheckedChange={v => setPaySettings(s => ({ ...s, testMode: { ...(s.testMode ?? {}), [p.id]: v } }))}
+                            />
+                          </div>
+
+                          {/* API credentials */}
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
-                              <Label className="text-[10px]">API Key</Label>
-                              <Input className="h-7 text-xs font-mono" placeholder="sk_live_..." value={payApiKeys[p.id]?.key ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], key: e.target.value } }))} />
+                              <Label className="text-[10px]">API Key {isTest && <span className="text-orange-400/70">(тест)</span>}</Label>
+                              <Input className="h-7 text-xs font-mono" placeholder={isTest ? "test_..." : "sk_live_..."} value={payApiKeys[p.id]?.key ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], key: e.target.value, secret: k[p.id]?.secret ?? "", merchant: k[p.id]?.merchant ?? "", webhookUrl: k[p.id]?.webhookUrl ?? "" } }))} />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-[10px]">Secret Key</Label>
-                              <Input className="h-7 text-xs font-mono" type="password" placeholder="••••••••" value={payApiKeys[p.id]?.secret ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], secret: e.target.value } }))} />
+                              <Input className="h-7 text-xs font-mono" type="password" placeholder="••••••••" value={payApiKeys[p.id]?.secret ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], secret: e.target.value, key: k[p.id]?.key ?? "", merchant: k[p.id]?.merchant ?? "", webhookUrl: k[p.id]?.webhookUrl ?? "" } }))} />
                             </div>
                             <div className="space-y-1 col-span-2">
-                              <Label className="text-[10px]">Merchant ID</Label>
-                              <Input className="h-7 text-xs font-mono" placeholder="merchant_12345" value={payApiKeys[p.id]?.merchant ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], merchant: e.target.value } }))} />
+                              <Label className="text-[10px]">Merchant ID / Shop ID</Label>
+                              <Input className="h-7 text-xs font-mono" placeholder="merchant_12345" value={payApiKeys[p.id]?.merchant ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], merchant: e.target.value, key: k[p.id]?.key ?? "", secret: k[p.id]?.secret ?? "", webhookUrl: k[p.id]?.webhookUrl ?? "" } }))} />
                             </div>
                           </div>
+
+                          {/* Webhook URL */}
+                          <div className="space-y-1">
+                            <Label className="text-[10px] flex items-center gap-1"><Globe className="w-3 h-3" />Webhook URL <span className="text-muted-foreground/60">(скопируйте в кабинет {p.name})</span></Label>
+                            <div className="flex gap-1.5">
+                              <Input className="h-7 text-[11px] font-mono bg-muted/10 flex-1" value={webhookUrl} readOnly />
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0" onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Скопировано"); }}>
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
                           <div className="flex gap-2">
                             <Button size="sm" className="h-7 text-xs flex-1" onClick={() => toast.success(`${p.name} — подключение проверено`)}>Тест подключения</Button>
                             {!isMain && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPaySettings(s => ({ ...s, activeProvider: p.id }))}>Основной</Button>}
+                            <a href={p.docs} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground"><ArrowUpRight className="w-3.5 h-3.5" /></Button>
+                            </a>
                           </div>
                         </div>
                       )}
@@ -975,6 +1023,45 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
+
+                {/* Currency */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1"><Globe className="w-3 h-3" />Валюта расчётов</Label>
+                  <div className="flex gap-2">
+                    {(["RUB", "USD", "EUR", "KZT"] as const).map(c => (
+                      <button key={c} onClick={() => setPaySettings(s => ({ ...s, currency: c }))}
+                        className={cn("flex-1 h-8 text-xs rounded-lg border font-medium transition-colors",
+                          (paySettings.currency ?? "RUB") === c
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border/50 text-muted-foreground hover:bg-muted/20"
+                        )}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Receipt email */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1"><ReceiptText className="w-3 h-3" />Email для квитанций</Label>
+                  <Input className="h-8 text-xs" placeholder="billing@vrpark.co" value={paySettings.receiptEmail ?? ""} onChange={e => setPaySettings(s => ({ ...s, receiptEmail: e.target.value }))} />
+                </div>
+
+                {/* Redirect URLs */}
+                <div className="space-y-2">
+                  <Label className="text-xs flex items-center gap-1"><Link className="w-3 h-3" />URL перенаправления</Label>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-emerald-400 w-16 shrink-0">Успех</span>
+                      <Input className="h-7 text-xs flex-1" placeholder="https://vrpark.co/booking/success" value={paySettings.successUrl ?? ""} onChange={e => setPaySettings(s => ({ ...s, successUrl: e.target.value }))} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-destructive w-16 shrink-0">Ошибка</span>
+                      <Input className="h-7 text-xs flex-1" placeholder="https://vrpark.co/booking/fail" value={paySettings.failUrl ?? ""} onChange={e => setPaySettings(s => ({ ...s, failUrl: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/20">
                   <div>
                     <p className="text-xs font-medium">Автоотмена брони</p>
@@ -1201,6 +1288,58 @@ export default function Settings() {
                         const mp = m.fixed ? ((m as any).price ?? 0) : m.pricePerObj * totalObjects;
                         return <div key={mid} className="flex justify-between"><span>{m.label}</span><span className="text-primary/80 font-medium">+{mp.toLocaleString("ru")} ₽</span></div>;
                       })}
+                    </div>
+                    {/* Autopayment */}
+                    <div className="mt-3 pt-3 border-t border-border/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-semibold">Автоплатёж</p>
+                          <p className="text-[10px] text-muted-foreground">Списывать подписку автоматически</p>
+                        </div>
+                        <Switch
+                          checked={tariff.autoPayEnabled ?? false}
+                          onCheckedChange={v => setTariff(t => ({ ...t, autoPayEnabled: v }))}
+                        />
+                      </div>
+                      {(tariff.autoPayEnabled) && (
+                        <div className="space-y-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] text-muted-foreground">День списания</Label>
+                              <span className="text-xs font-bold tabular-nums">{tariff.autoPayDay ?? 1}</span>
+                            </div>
+                            <input
+                              type="range" min={1} max={28} step={1}
+                              value={tariff.autoPayDay ?? 1}
+                              onChange={e => setTariff(t => ({ ...t, autoPayDay: Number(e.target.value) }))}
+                              className="w-full accent-primary h-1.5"
+                            />
+                            <p className="text-[10px] text-muted-foreground">Каждое {tariff.autoPayDay ?? 1}-е число месяца</p>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Способ оплаты</Label>
+                            <div className="flex gap-2">
+                              {([
+                                { id: "card", label: "Карта" },
+                                { id: "invoice", label: "Счёт" },
+                              ] as const).map(m => (
+                                <button
+                                  key={m.id}
+                                  onClick={() => setTariff(t => ({ ...t, autoPayMethod: m.id }))}
+                                  className={cn(
+                                    "flex-1 h-7 text-xs rounded-lg border transition-colors",
+                                    (tariff.autoPayMethod ?? "card") === m.id
+                                      ? "border-primary bg-primary/10 text-foreground font-medium"
+                                      : "border-border/50 text-muted-foreground hover:bg-muted/20"
+                                  )}
+                                >
+                                  {m.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <Button className="w-full mt-3 h-8 text-xs" onClick={() => toast.success("Тариф сохранён")}>
                       Сохранить тариф

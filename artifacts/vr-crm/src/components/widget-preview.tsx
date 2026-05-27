@@ -361,11 +361,15 @@ function ZoneDetail({
   const [photoIdx, setPhotoIdx] = useState(0);
   const photos = zoneMedia.photos;
 
-  // Load real games from localStorage; fall back to static defaults for legacy zone IDs
-  const [storedGames] = useLocalStorage<Array<{ id: string; name: string; genre: string; age: string; players: string; duration: string; desc: string; enabled: boolean }>>("vrpark_games", []);
+  // Load real games from localStorage; filter by zone if zoneIds assigned, fall back to static defaults
+  const [storedGames] = useLocalStorage<Array<{ id: string; name: string; genre: string; age: string; players: string; duration: string; desc: string; enabled: boolean; zoneIds?: number[] }>>("vrpark_games", []);
   const enabledStoredGames = storedGames.filter(g => g.enabled);
+  const zoneNumericId = typeof zone.id === "string" ? parseInt(zone.id) : zone.id;
+  const gamesForZone = enabledStoredGames.filter(g =>
+    !g.zoneIds || g.zoneIds.length === 0 || g.zoneIds.includes(zoneNumericId)
+  );
   const games = enabledStoredGames.length > 0
-    ? enabledStoredGames
+    ? gamesForZone
     : (DEFAULT_ZONE_GAMES[zone.id] || []);
 
   return (

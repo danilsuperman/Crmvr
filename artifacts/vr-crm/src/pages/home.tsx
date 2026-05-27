@@ -472,8 +472,8 @@ export default function Home() {
       if (form.packageId) {
         const pkg = packages.find(p => p.id === Number(form.packageId));
         if (!pkg) return null;
-        const pkgPrice = (pkg as any).price ?? 0;
-        const zoneLines = pkg.zoneIds.map(zid => {
+        const pkgPrice = (pkg as any).price || PACKAGE_PRICE[pkg.id] || 0;
+        const zoneLines = (pkg.zoneIds ?? []).map(zid => {
           const zone = zones.find(z => z.id === zid);
           return { zoneId: zid, zoneName: zone?.name ?? `Зона ${zid}`, zoneColor: zone?.color, st: null, pricePerPerson: 0, subtotal: 0 };
         });
@@ -1027,11 +1027,16 @@ export default function Home() {
                               <p className="text-blue-300/70 mt-0.5">{(selectedPkg as any).description}</p>
                             )}
                           </div>
-                          {(selectedPkg as any).price > 0 && (
-                            <span className="shrink-0 text-lg font-black text-emerald-400 tabular-nums">
-                              {((selectedPkg as any).price as number).toLocaleString("ru")} ₽
-                            </span>
-                          )}
+                          {(() => {
+                            const displayPrice = (selectedPkg as any).price || PACKAGE_PRICE[selectedPkg.id] || 0;
+                            return displayPrice > 0 ? (
+                              <span className="shrink-0 text-lg font-black text-emerald-400 tabular-nums">
+                                {displayPrice.toLocaleString("ru")} ₽
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-sm text-muted-foreground">цена не указана</span>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {selectedPkg.zoneIds.map(zid => {
@@ -1155,7 +1160,7 @@ export default function Home() {
                     <SelectContent>
                       {sessionTypesForZone(form.zoneId).map((st) => (
                         <SelectItem key={st.id} value={st.id.toString()}>
-                          {st.name} — {(SESSION_PRICE[st.id] ?? 0).toLocaleString("ru")} ₽/чел.
+                          {st.name} — {((st as any).price ?? SESSION_PRICE[st.id] ?? 0).toLocaleString("ru")} ₽/чел.
                         </SelectItem>
                       ))}
                       {sessionTypesForZone(form.zoneId).length === 0 && (
