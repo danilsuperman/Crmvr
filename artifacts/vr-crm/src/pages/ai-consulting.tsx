@@ -208,7 +208,7 @@ export default function AiConsulting() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
-            <div className="space-y-2 max-h-72 overflow-y-auto">
+            <div className="space-y-2 max-h-72 overflow-y-auto rounded-xl bg-white dark:bg-[#1a1a2e] border border-border/30 p-3">
               {messages.map((msg, i) => (
                 <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
                   {msg.role === "ai" && (
@@ -219,7 +219,7 @@ export default function AiConsulting() {
                   <div className={cn(
                     "max-w-[75%] rounded-2xl px-3 py-2 text-[11px] leading-relaxed whitespace-pre-line",
                     msg.role === "ai"
-                      ? "bg-muted/30 border border-border/30 text-foreground"
+                      ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100"
                       : "bg-primary text-primary-foreground"
                   )}>
                     {msg.text}
@@ -231,10 +231,10 @@ export default function AiConsulting() {
                   <div className="w-6 h-6 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0">
                     <Brain className="w-3 h-3 text-violet-400" />
                   </div>
-                  <div className="bg-muted/30 border border-border/30 rounded-2xl px-3 py-2 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl px-3 py-2 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               )}

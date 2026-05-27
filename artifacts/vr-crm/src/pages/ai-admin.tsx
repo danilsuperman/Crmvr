@@ -168,7 +168,7 @@ export default function AiAdmin() {
               <p className="text-xs text-muted-foreground">Тестовый чат — симулирует диалог с клиентом</p>
               <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setMessages(DEMO_HISTORY)}><RefreshCw className="w-3 h-3" />Сбросить</Button>
             </div>
-            <div className="flex-1 overflow-auto rounded-xl border border-border/50 bg-card/20 p-3 space-y-3 min-h-0">
+            <div className="flex-1 overflow-auto rounded-xl border border-border/30 bg-white dark:bg-[#1a1a2e] p-3 space-y-3 min-h-0">
               {messages.map((msg, i) => (
                 <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : msg.role === "system" ? "justify-center" : "justify-start")}>
                   {msg.role === "system" ? (
@@ -182,7 +182,7 @@ export default function AiAdmin() {
                       )}
                       <div className={cn("max-w-[78%] space-y-0.5")}>
                         <div className={cn("rounded-2xl px-3 py-2 text-[12px] leading-relaxed whitespace-pre-line",
-                          msg.role === "bot" ? "bg-muted/25 border border-border/30 text-foreground rounded-tl-sm" : "bg-primary text-primary-foreground rounded-tr-sm"
+                          msg.role === "bot" ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-tl-sm" : "bg-primary text-primary-foreground rounded-tr-sm"
                         )}>{msg.text}</div>
                         <p className={cn("text-[9px] text-muted-foreground/50", msg.role === "user" ? "text-right" : "text-left")}>{msg.time}</p>
                       </div>
@@ -195,7 +195,7 @@ export default function AiAdmin() {
                   <div className="w-7 h-7 rounded-full bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
                     <Bot className="w-3.5 h-3.5 text-blue-400" />
                   </div>
-                  <div className="bg-muted/25 border border-border/30 rounded-2xl rounded-tl-sm"><TypingDots /></div>
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-tl-sm"><TypingDots /></div>
                 </div>
               )}
               <div ref={chatEndRef} />

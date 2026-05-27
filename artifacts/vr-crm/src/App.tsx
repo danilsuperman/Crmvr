@@ -26,6 +26,7 @@ import Leagues from "@/pages/leagues";
 import Loyalty from "@/pages/loyalty";
 import AiAdmin from "@/pages/ai-admin";
 import Knowledge from "@/pages/knowledge";
+import KnowledgeArticle from "@/pages/knowledge-article";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ function Router() {
         <Route path="/loyalty" component={Loyalty} />
         <Route path="/ai-admin" component={AiAdmin} />
         <Route path="/knowledge" component={Knowledge} />
+        <Route path="/knowledge/:id" component={KnowledgeArticle} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

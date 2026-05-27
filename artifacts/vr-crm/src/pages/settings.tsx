@@ -42,11 +42,11 @@ const MOCK_USERS = [
 const ROLES = ["Owner", "Administrator", "Operator", "Cashier", "Technician"];
 
 const ROLE_PERMISSIONS: Record<string, Record<string, boolean>> = {
-  Owner: { finances: true, devices: true, analytics: true, bookings: true, settings: true },
-  Administrator: { finances: true, devices: true, analytics: true, bookings: true, settings: true },
-  Operator: { finances: false, devices: true, analytics: false, bookings: true, settings: false },
-  Cashier: { finances: true, devices: false, analytics: false, bookings: true, settings: false },
-  Technician: { finances: false, devices: true, analytics: false, bookings: false, settings: false },
+  Owner: { bookings: true, clients: true, devices: true, analytics: true, finances: true, settings: true, cameras: true, inbox: true, knowledge: true, ai_consulting: true, ai_admin: true, leagues: true, loyalty: true, network: true, registration: true },
+  Administrator: { bookings: true, clients: true, devices: true, analytics: true, finances: true, settings: false, cameras: true, inbox: true, knowledge: true, ai_consulting: true, ai_admin: true, leagues: true, loyalty: true, network: false, registration: true },
+  Operator: { bookings: true, clients: true, devices: true, analytics: false, finances: false, settings: false, cameras: true, inbox: true, knowledge: true, ai_consulting: false, ai_admin: false, leagues: true, loyalty: false, network: false, registration: false },
+  Cashier: { bookings: true, clients: true, devices: false, analytics: false, finances: true, settings: false, cameras: false, inbox: true, knowledge: true, ai_consulting: false, ai_admin: false, leagues: false, loyalty: true, network: false, registration: false },
+  Technician: { bookings: false, clients: false, devices: true, analytics: false, finances: false, settings: false, cameras: true, inbox: false, knowledge: true, ai_consulting: false, ai_admin: false, leagues: false, loyalty: false, network: false, registration: true },
 };
 
 const ZONE_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#06b6d4"];
@@ -595,11 +595,21 @@ export default function Settings() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
-                    { key: "finances", label: "Финансы", desc: "Доступ к финансам и выручке" },
-                    { key: "devices", label: "Устройства", desc: "Управление устройствами" },
-                    { key: "analytics", label: "Аналитика", desc: "Просмотр отчётов и данных" },
-                    { key: "bookings", label: "Бронирования", desc: "Создание и изменение броней" },
-                    { key: "settings", label: "Настройки", desc: "Доступ к настройкам CRM" },
+                    { key: "bookings",     label: "Бронирования",     desc: "Создание и изменение броней" },
+                    { key: "clients",      label: "Клиенты",          desc: "Просмотр и редактирование клиентов" },
+                    { key: "devices",      label: "Устройства",       desc: "Управление VR-устройствами" },
+                    { key: "analytics",    label: "Аналитика",        desc: "Просмотр отчётов и данных" },
+                    { key: "finances",     label: "Финансы",          desc: "Доступ к финансам и выручке" },
+                    { key: "cameras",      label: "Камеры",           desc: "Просмотр камер видеонаблюдения" },
+                    { key: "inbox",        label: "Сообщения",        desc: "Входящие и переписка" },
+                    { key: "knowledge",    label: "База знаний",      desc: "Просмотр и редактирование статей" },
+                    { key: "ai_consulting",label: "AI Консалтинг",    desc: "Аналитика и советы по загрузке" },
+                    { key: "ai_admin",     label: "AI Администратор", desc: "Настройка бота и сценариев" },
+                    { key: "leagues",      label: "Лиги и рейтинги",  desc: "Турниры, сезоны, лидерборды" },
+                    { key: "loyalty",      label: "Лояльность",       desc: "Программа лояльности и бонусы" },
+                    { key: "network",      label: "Сеть парков",      desc: "Управление филиалами" },
+                    { key: "registration", label: "Конструктор",      desc: "Конструктор зон и расписаний" },
+                    { key: "settings",     label: "Настройки CRM",    desc: "Полный доступ к настройкам" },
                   ].map((perm) => {
                     const has = rolePermissions[selectedRole]?.[perm.key] ?? false;
                     return (
