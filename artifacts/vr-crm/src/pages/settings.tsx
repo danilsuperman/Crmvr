@@ -844,7 +844,7 @@ export default function Settings() {
               const objCost = calcObjectCost(tariff.extraObjects);
               const empCost = calcEmployeeCost(tariff.extraEmployees);
               const moduleCost = MODULES_LIST.reduce((sum, m) => {
-                if (!tariff.modules.includes(m.id)) return sum;
+                if (!(tariff.modules ?? []).includes(m.id)) return sum;
                 if (m.fixed) return sum + ((m as any).price ?? 0);
                 return sum + m.pricePerObj * totalObjects;
               }, 0);
@@ -991,7 +991,7 @@ export default function Settings() {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {MODULES_LIST.map(mod => {
-                        const active = tariff.modules.includes(mod.id);
+                        const active = (tariff.modules ?? []).includes(mod.id);
                         const modPrice = mod.fixed
                           ? ((mod as any).price ?? 0)
                           : mod.pricePerObj * totalObjects;
@@ -1041,7 +1041,7 @@ export default function Settings() {
                       <div className="flex justify-between"><span>Базовый тариф {plan.name}</span><span className="text-foreground font-medium">{plan.price.toLocaleString("ru")} ₽</span></div>
                       {tariff.extraObjects > 0 && <div className="flex justify-between"><span>+{tariff.extraObjects} объектов</span><span className="text-blue-400 font-medium">+{objCost.toLocaleString("ru")} ₽</span></div>}
                       {tariff.extraEmployees > 0 && <div className="flex justify-between"><span>+{tariff.extraEmployees} сотрудников</span><span className="text-violet-400 font-medium">+{empCost.toLocaleString("ru")} ₽</span></div>}
-                      {tariff.modules.map(mid => {
+                      {(tariff.modules ?? []).map(mid => {
                         const m = MODULES_LIST.find(x => x.id === mid);
                         if (!m) return null;
                         const mp = m.fixed ? ((m as any).price ?? 0) : m.pricePerObj * totalObjects;
