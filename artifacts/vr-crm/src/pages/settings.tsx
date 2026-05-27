@@ -178,7 +178,8 @@ export default function Settings() {
   const [sessionModal, setSessionModal] = useState<{
     open: boolean; id?: number;
     name: string; color: string; minDuration: string; price: string;
-  }>({ open: false, name: "", color: "#8b5cf6", minDuration: "30", price: "" });
+    priceMode: "per_person" | "per_zone_time";
+  }>({ open: false, name: "", color: "#8b5cf6", minDuration: "30", price: "", priceMode: "per_person" });
 
   // Package modal
   const [pkgModal, setPkgModal] = useState<{
@@ -216,7 +217,7 @@ export default function Settings() {
 
   const handleSessionSave = () => {
     if (!sessionModal.name.trim()) { toast.error("Введите название типа"); return; }
-    const entry = { name: sessionModal.name, color: sessionModal.color, minDuration: Number(sessionModal.minDuration) || 30, price: Number(sessionModal.price) || 0 };
+    const entry = { name: sessionModal.name, color: sessionModal.color, minDuration: Number(sessionModal.minDuration) || 30, price: Number(sessionModal.price) || 0, priceMode: sessionModal.priceMode };
     if (sessionModal.id) {
       setSessionTypes((ss) => ss.map((s) => s.id === sessionModal.id ? { ...s, ...entry } : s));
       toast.success("Тип обновлён");
@@ -346,15 +347,18 @@ export default function Settings() {
                         <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
                         <div>
                           <CardTitle className="text-sm">{st.name}</CardTitle>
-                          <CardDescription className="text-xs flex items-center gap-2">
-                            <Clock className="w-3 h-3" /> Мин. {st.minDuration} мин
+                          <CardDescription className="text-xs flex items-center gap-2 flex-wrap">
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Мин. {st.minDuration} мин</span>
                             {(st as any).price ? <span className="text-green-500 font-semibold">{(st as any).price.toLocaleString("ru")} ₽</span> : null}
+                            {(st as any).priceMode === "per_zone_time"
+                              ? <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-semibold">за зону</span>
+                              : <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-semibold">за чел.</span>}
                           </CardDescription>
                         </div>
                       </div>
                       <div className="flex gap-1.5">
                         <Button variant="ghost" size="icon" className="h-7 w-7"
-                          onClick={() => setSessionModal({ open: true, id: st.id, name: st.name, color: st.color, minDuration: String(st.minDuration), price: String((st as any).price || "") })}>
+                          onClick={() => setSessionModal({ open: true, id: st.id, name: st.name, color: st.color, minDuration: String(st.minDuration), price: String((st as any).price || ""), priceMode: (st as any).priceMode ?? "per_person" })}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
@@ -1003,7 +1007,7 @@ export default function Settings() {
               const toggleModule = (id: string) => {
                 setTariff(t => ({
                   ...t,
-                  modules: t.modules.includes(id) ? t.modules.filter(x => x !== id) : [...t.modules, id],
+                  modules: (t.modules ?? []).includes(id) ? (t.modules ?? []).filter(x => x !== id) : [...(t.modules ?? []), id],
                 }));
               };
               const changeExtra = (field: "extraObjects" | "extraEmployees", delta: number) => {
@@ -1272,8 +1276,47 @@ export default function Settings() {
               <Label className="text-xs">Мин. длительность (мин)</Label>
               <Input className="h-9 text-sm" type="number" min="5" value={sessionModal.minDuration} onChange={(e) => setSessionModal((s) => ({ ...s, minDuration: e.target.value }))} />
             </div>
+
+            {/* Pricing mode selector */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Стоимость (₽)</Label>
+              <Label className="text-xs">Тип тарификации</Label>
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/20 rounded-lg border border-border/50">
+                <button
+                  type="button"
+                  onClick={() => setSessionModal(s => ({ ...s, priceMode: "per_person" }))}
+                  className={cn(
+                    "py-2 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1.5",
+                    sessionModal.priceMode === "per_person"
+                      ? "bg-primary/20 text-primary shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Users className="w-3 h-3" /> За человека
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSessionModal(s => ({ ...s, priceMode: "per_zone_time" }))}
+                  className={cn(
+                    "py-2 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1.5",
+                    sessionModal.priceMode === "per_zone_time"
+                      ? "bg-amber-500/20 text-amber-400 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Clock className="w-3 h-3" /> За зону/время
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                {sessionModal.priceMode === "per_person"
+                  ? "Цена умножается на количество гостей"
+                  : "Фиксированная цена за аренду зоны (не зависит от числа гостей)"}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                {sessionModal.priceMode === "per_person" ? "Стоимость (₽ / чел.)" : "Стоимость (₽ / зону)"}
+              </Label>
               <Input className="h-9 text-sm" type="number" min="0" placeholder="0" value={sessionModal.price} onChange={(e) => setSessionModal((s) => ({ ...s, price: e.target.value }))} />
             </div>
             <Button className="w-full" onClick={handleSessionSave}>

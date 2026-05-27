@@ -9,7 +9,7 @@ import {
   X, ArrowLeft, ArrowRight, Check, Wand2, Hand, Package,
   Users, Clock, ChevronLeft, ChevronRight, Gamepad2, Star, Calendar,
   CheckCircle2, Phone, Mail, MessageSquare, Sparkles,
-  MapPin, Zap, ChevronDown, Play, Image, Film,
+  MapPin, Zap, ChevronDown, Play, Image, Film, CreditCard,
 } from "lucide-react";
 import { format, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, isSameMonth, isSameDay, isToday, addMonths, subMonths } from "date-fns";
 import { ru as ruLocale } from "date-fns/locale";
@@ -574,6 +574,7 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
   const [guests, setGuests] = useState("1");
   const [contact, setContact] = useState({ name: "", phone: "", email: "", comment: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const activeZones = storedZones.filter(z => z.enabled);
   const zone = activeZones.find(z => z.id === selectedZoneId);
@@ -703,19 +704,50 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center gap-1"><Zap className="w-3 h-3" /> Тип сеанса</Label>
               <div className="space-y-1">
-                {availableSessionTypes.map(st => (
-                  <button key={st.id} onClick={() => setSessionTypeId(st.id === sessionTypeId ? null : st.id)} className={cn(
-                    "w-full flex items-center justify-between p-2 rounded-xl border text-xs font-medium transition-all",
-                    sessionTypeId === st.id ? "border-primary bg-primary/10 text-primary" : "border-border/50 bg-card/30 hover:border-primary/40"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
-                      <span>{st.name}</span>
-                    </div>
-                    {st.price ? <span className="font-bold">{st.price.toLocaleString("ru")} ₽</span> : null}
-                  </button>
-                ))}
+                {availableSessionTypes.map(st => {
+                  const stPriceMode = (st as any).priceMode ?? "per_person";
+                  const stPriceVal = st.price ?? 0;
+                  const guestsNum = parseInt(guests) || 1;
+                  const lineTotal = stPriceMode === "per_zone_time" ? stPriceVal : stPriceVal * guestsNum;
+                  return (
+                    <button key={st.id} onClick={() => setSessionTypeId(st.id === sessionTypeId ? null : st.id)} className={cn(
+                      "w-full flex items-center justify-between p-2 rounded-xl border text-xs font-medium transition-all",
+                      sessionTypeId === st.id ? "border-primary bg-primary/10 text-primary" : "border-border/50 bg-card/30 hover:border-primary/40"
+                    )}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
+                        <span>{st.name}</span>
+                      </div>
+                      {stPriceVal > 0 && (
+                        <div className="text-right">
+                          <span className="font-bold">{lineTotal.toLocaleString("ru")} ₽</span>
+                          <span className="text-[10px] text-muted-foreground ml-1">
+                            {stPriceMode === "per_zone_time" ? "за зону" : `×${guestsNum}`}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+              {/* Running total when session selected */}
+              {sessionTypeId && (() => {
+                const st = availableSessionTypes.find(s => s.id === sessionTypeId);
+                if (!st || !st.price) return null;
+                const stPriceMode = (st as any).priceMode ?? "per_person";
+                const guestsNum = parseInt(guests) || 1;
+                const total = stPriceMode === "per_zone_time" ? st.price : st.price * guestsNum;
+                const prepay = Math.round(total * 0.3);
+                return (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-500/8 border border-emerald-500/20 mt-1">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Итого · предоплата 30%</p>
+                      <p className="text-xs font-bold text-emerald-400">{prepay.toLocaleString("ru")} ₽ сейчас</p>
+                    </div>
+                    <p className="text-lg font-black text-emerald-400 tabular-nums">{total.toLocaleString("ru")} ₽</p>
+                  </div>
+                );
+              })()}
             </div>
           )}
           <div className="space-y-1.5">
@@ -795,24 +827,45 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
         </div>
       </div>
       <div className="flex flex-col gap-2 mt-4">
+        {/* Prepay button — prominent, always visible when phone filled */}
+        {contact.phone && (() => {
+          const st = sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId) : null;
+          const stPriceMode = (st as any)?.priceMode ?? "per_person";
+          const stPriceVal = st?.price ?? 1200;
+          const guestsNum = parseInt(guests) || 1;
+          const total = stPriceMode === "per_zone_time" ? stPriceVal : stPriceVal * guestsNum;
+          const prepay = Math.round(total * 0.3);
+          const handlePrepay = () => {
+            const link = `https://pay.vrpark.co/prepay?amount=${prepay}&zone=${encodeURIComponent(zone?.name ?? "")}&time=${selectedTime}`;
+            navigator.clipboard?.writeText(link).catch(() => {});
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 2500);
+          };
+          return (
+            <button
+              onClick={handlePrepay}
+              className={cn(
+                "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all",
+                linkCopied
+                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-400"
+                  : "border-amber-500/40 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15"
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-xs">
+                {linkCopied ? <CheckCircle2 className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
+                {linkCopied ? "Ссылка скопирована!" : "Внести предоплату"}
+              </span>
+              <span className="text-base font-black tabular-nums">{prepay.toLocaleString("ru")} ₽</span>
+            </button>
+          );
+        })()}
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-1" onClick={() => setStep("datetime")}><ArrowLeft className="w-3.5 h-3.5" /></Button>
           <Button className="flex-1" disabled={!contact.name || !contact.phone || submitting} onClick={handleBook}>
             {submitting ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2" /> : null}
-            {submitting ? "Бронируем..." : "Забронировать"}
+            {submitting ? "Бронируем..." : "Забронировать полностью"}
           </Button>
         </div>
-        {contact.phone && (
-          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onClick={() => {
-            const st = sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId) : null;
-            const total = (st?.price ?? 1200) * (parseInt(guests) || 1);
-            const prepay = Math.round(total * 0.3);
-            navigator.clipboard?.writeText(`https://pay.vrpark.co/prepay?amount=${prepay}&zone=${zone?.name}&time=${selectedTime}`).catch(() => {});
-            alert(`Ссылка на предоплату ${prepay.toLocaleString("ru")} ₽ скопирована!`);
-          }}>
-            <Zap className="w-3.5 h-3.5" /> Создать ссылку на предоплату
-          </Button>
-        )}
       </div>
     </div>
   );
