@@ -773,18 +773,46 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
           ].filter(item => item.v).map(item => (
             <div key={item.l} className="flex justify-between"><span className="text-muted-foreground">{item.l}</span><span className="font-medium">{item.v}</span></div>
           ))}
-          <div className="border-t border-primary/20 pt-1.5 flex justify-between font-semibold text-sm text-primary">
-            <span>Итого</span>
-            <span>{sessionTypeId && sessionTypes.find(s => s.id === sessionTypeId)?.price ? `${sessionTypes.find(s => s.id === sessionTypeId)!.price!.toLocaleString("ru")} ₽` : "от 1 200 ₽"}</span>
-          </div>
+          {(() => {
+            const st = sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId) : null;
+            const basePrice = st?.price ?? 1200;
+            const guestsNum = parseInt(guests) || 1;
+            const total = basePrice * guestsNum;
+            const prepay30 = Math.round(total * 0.3);
+            return (
+              <>
+                <div className="border-t border-primary/20 pt-1.5 flex justify-between font-semibold text-sm text-primary">
+                  <span>Итого</span>
+                  <span>{total.toLocaleString("ru")} ₽</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>Предоплата 30%</span>
+                  <span className="font-medium text-amber-400">{prepay30.toLocaleString("ru")} ₽</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
-      <div className="flex gap-2 mt-4">
-        <Button variant="outline" size="sm" className="gap-1" onClick={() => setStep("datetime")}><ArrowLeft className="w-3.5 h-3.5" /></Button>
-        <Button className="flex-1" disabled={!contact.name || !contact.phone || submitting} onClick={handleBook}>
-          {submitting ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2" /> : null}
-          {submitting ? "Бронируем..." : "Забронировать"}
-        </Button>
+      <div className="flex flex-col gap-2 mt-4">
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => setStep("datetime")}><ArrowLeft className="w-3.5 h-3.5" /></Button>
+          <Button className="flex-1" disabled={!contact.name || !contact.phone || submitting} onClick={handleBook}>
+            {submitting ? <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2" /> : null}
+            {submitting ? "Бронируем..." : "Забронировать"}
+          </Button>
+        </div>
+        {contact.phone && (
+          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onClick={() => {
+            const st = sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId) : null;
+            const total = (st?.price ?? 1200) * (parseInt(guests) || 1);
+            const prepay = Math.round(total * 0.3);
+            navigator.clipboard?.writeText(`https://pay.vrpark.co/prepay?amount=${prepay}&zone=${zone?.name}&time=${selectedTime}`).catch(() => {});
+            alert(`Ссылка на предоплату ${prepay.toLocaleString("ru")} ₽ скопирована!`);
+          }}>
+            <Zap className="w-3.5 h-3.5" /> Создать ссылку на предоплату
+          </Button>
+        )}
       </div>
     </div>
   );

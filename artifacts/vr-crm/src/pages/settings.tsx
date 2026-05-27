@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Package, Users, MessageSquare, DollarSign, Shield, UserPlus, CheckCircle2, Layers, Minus, Star, Brain, Bot, Trophy, Heart, Gamepad2, Bell, Mail, CreditCard, Zap, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +51,43 @@ const ROLE_PERMISSIONS: Record<string, Record<string, boolean>> = {
 
 const ZONE_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#06b6d4"];
 
+const TARIFF_PLANS = [
+  { id: "start", name: "START", emoji: "🟢", price: 3000, baseObjects: 1, baseEmployees: 2,
+    features: ["1 объект", "Базовая CRM", "Расписание сессий", "До 2 сотрудников", "Базовая аналитика"],
+    color: "border-white/10 bg-muted/10", activeColor: "border-emerald-500/50 bg-emerald-500/8 ring-1 ring-emerald-500/30" },
+  { id: "pro", name: "PRO", emoji: "🟡", price: 8100, baseObjects: 3, baseEmployees: 10,
+    features: ["До 3 объектов", "Расширенная CRM", "Онлайн-бронь + оплаты", "До 10 сотрудников", "Аналитика загрузки", "Интеграции"],
+    color: "border-white/10 bg-muted/10", activeColor: "border-indigo-500/50 bg-indigo-500/8 ring-1 ring-indigo-500/30", badge: "Популярный" },
+  { id: "enterprise", name: "ENTERPRISE", emoji: "🔴", price: 24000, baseObjects: 10, baseEmployees: 50,
+    features: ["До 10 объектов", "Сеть VR-клубов", "До 50+ сотрудников", "Расширенная аналитика сети", "Управление филиалами", "API доступ"],
+    color: "border-white/10 bg-muted/10", activeColor: "border-violet-500/50 bg-violet-500/8 ring-1 ring-violet-500/30" },
+] as const;
+
+const MODULES_LIST = [
+  { id: "payments", icon: CreditCard, label: "Онлайн оплата", desc: "Stripe / ЮKassa для приёма платежей", pricePerObj: 1500, fixed: false },
+  { id: "sms_notify", icon: Mail, label: "Рассылки и оповещения", desc: "SMS / WhatsApp уведомления клиентам", pricePerObj: 1500, fixed: false },
+  { id: "messaging", icon: MessageSquare, label: "Общение внутри платформы", desc: "Интеграция ТГ, Макс, WhatsApp", pricePerObj: 1500, fixed: false },
+  { id: "auto_notify", icon: Bell, label: "Авто-уведомления", desc: "Напоминания о брони, переносах, скидках", pricePerObj: 1500, fixed: false },
+  { id: "ai_consult", icon: Brain, label: "AI Консалтинг", desc: "Прогноз загрузки, акции, «счастливые часы»", pricePerObj: 1500, fixed: false },
+  { id: "guest_cabinet", icon: Users, label: "Личный кабинет гостя", desc: "Бронь, история, бонусы, достижения", pricePerObj: 1500, fixed: false },
+  { id: "leagues", icon: Trophy, label: "Система лиг / рейтингов", desc: "Турниры, лидерборды, сезоны, ранги", pricePerObj: 500, fixed: false },
+  { id: "loyalty", icon: Heart, label: "Лояльность / подписка", desc: "VIP, кешбек, подписные часы, бонусы", pricePerObj: 1000, fixed: false },
+  { id: "ai_admin", icon: Bot, label: "AI Администратор", desc: "Отвечает гостям, бронирует, консультирует", price: 5000, pricePerObj: 0, fixed: true },
+  { id: "vr_launcher", icon: Gamepad2, label: "VR Launcher / Lobby System", desc: "VR-лобби, список игр, защита от выхода в SteamVR", price: 3000, pricePerObj: 0, fixed: true },
+];
+
+function calcObjectCost(extra: number): number {
+  if (extra <= 0) return 0;
+  if (extra <= 5) return extra * 2000;
+  if (extra <= 10) return extra * 1800;
+  return extra * 1600;
+}
+function calcEmployeeCost(extra: number): number {
+  if (extra <= 0) return 0;
+  if (extra <= 10) return extra * 400;
+  if (extra <= 30) return extra * 300;
+  return extra * 200;
+}
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -111,6 +148,21 @@ export default function Settings() {
   useListPackages();
   const isLoadingPackages = false;
   const [packages, setPackages] = useLocalStorage("vrpark_packages", MOCK_PACKAGES_DATA);
+  const [tariff, setTariff] = useLocalStorage("vrpark_tariff", {
+    plan: "pro" as "start" | "pro" | "enterprise",
+    extraObjects: 0,
+    extraEmployees: 0,
+    modules: [] as string[],
+  });
+  const [paySettings, setPaySettings] = useLocalStorage("vrpark_pay_settings", {
+    activeProvider: "yukassa",
+    connectedProviders: [] as string[],
+    prepayPercent: 30,
+    linkExpiryHours: 24,
+    autoCancelHours: 48,
+  });
+  const [payApiKeys, setPayApiKeys] = useState<Record<string, { key: string; secret: string; merchant: string }>>({});
+  const [openProvider, setOpenProvider] = useState<string | null>(null);
 
   // Zone modal
   const [zoneModal, setZoneModal] = useState<{
@@ -209,6 +261,8 @@ export default function Settings() {
             <TabsTrigger value="sms" className="text-xs">SMS</TabsTrigger>
             <TabsTrigger value="salary" className="text-xs">Зарплата</TabsTrigger>
             <TabsTrigger value="system" className="text-xs">Система</TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs flex items-center gap-1"><CreditCard className="w-3 h-3" /> Оплаты</TabsTrigger>
+            <TabsTrigger value="tariff" className="text-xs flex items-center gap-1"><Star className="w-3 h-3" /> Тариф</TabsTrigger>
           </TabsList>
 
           {/* Zones tab */}
@@ -667,6 +721,340 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">Рабочие часы и глобальные настройки — скоро.</p>
               </div>
             </Card>
+          </TabsContent>
+
+          {/* Payments tab */}
+          <TabsContent value="payments" className="space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold mb-1">Платёжные системы</h2>
+              <p className="text-xs text-muted-foreground mb-4">Подключите провайдера для приёма онлайн-оплат и генерации ссылок</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { id: "yukassa", name: "ЮKassa", desc: "Российский лидер онлайн-платежей", icon: "Ю", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+                  { id: "stripe", name: "Stripe", desc: "Международные платежи, карты Visa/MC", icon: "S", color: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+                  { id: "tbank", name: "Т-Банк", desc: "Платежи через Тинькофф", icon: "Т", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
+                  { id: "sber", name: "СберПей", desc: "Сбербанк онлайн-оплата", icon: "С", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+                  { id: "cloud", name: "CloudPayments", desc: "Подписки и эквайринг", icon: "C", color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
+                  { id: "robokassa", name: "Robokassa", desc: "Гибкий эквайринг для бизнеса", icon: "R", color: "text-pink-400 bg-pink-500/10 border-pink-500/20" },
+                ].map(p => {
+                  const connected = paySettings.connectedProviders.includes(p.id);
+                  const isMain = paySettings.activeProvider === p.id;
+                  const expanded = openProvider === p.id;
+                  return (
+                    <div key={p.id} className={cn("rounded-xl border transition-all", connected ? "border-emerald-500/30 bg-emerald-500/5" : "border-border/50 bg-card/20")}>
+                      <div className="flex items-center gap-3 p-3">
+                        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border shrink-0", p.color)}>
+                          {p.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold">{p.name}</p>
+                            {connected && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">подключено</span>}
+                            {isMain && connected && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">основной</span>}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">{p.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {connected && (
+                            <button onClick={() => setOpenProvider(expanded ? null : p.id)} className="text-[10px] px-2 py-1 rounded-lg border border-border/50 hover:bg-muted/20 text-muted-foreground">
+                              {expanded ? "Свернуть" : "Ключи"}
+                            </button>
+                          )}
+                          <Switch checked={connected} onCheckedChange={() => setPaySettings(s => ({
+                            ...s,
+                            connectedProviders: s.connectedProviders.includes(p.id)
+                              ? s.connectedProviders.filter(x => x !== p.id)
+                              : [...s.connectedProviders, p.id],
+                          }))} />
+                        </div>
+                      </div>
+                      {expanded && connected && (
+                        <div className="border-t border-border/30 p-3 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">API Key</Label>
+                              <Input className="h-7 text-xs font-mono" placeholder="sk_live_..." value={payApiKeys[p.id]?.key ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], key: e.target.value } }))} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Secret Key</Label>
+                              <Input className="h-7 text-xs font-mono" type="password" placeholder="••••••••" value={payApiKeys[p.id]?.secret ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], secret: e.target.value } }))} />
+                            </div>
+                            <div className="space-y-1 col-span-2">
+                              <Label className="text-[10px]">Merchant ID</Label>
+                              <Input className="h-7 text-xs font-mono" placeholder="merchant_12345" value={payApiKeys[p.id]?.merchant ?? ""} onChange={e => setPayApiKeys(k => ({ ...k, [p.id]: { ...k[p.id], merchant: e.target.value } }))} />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" className="h-7 text-xs flex-1" onClick={() => toast.success(`${p.name} — подключение проверено`)}>Тест подключения</Button>
+                            {!isMain && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPaySettings(s => ({ ...s, activeProvider: p.id }))}>Основной</Button>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Card className="bg-card/30 border-border/50">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm">Параметры оплаты</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Предоплата по умолчанию (%)</Label>
+                    <div className="flex items-center gap-2">
+                      <input type="range" min="10" max="100" step="5" value={paySettings.prepayPercent}
+                        onChange={e => setPaySettings(s => ({ ...s, prepayPercent: Number(e.target.value) }))}
+                        className="flex-1 accent-primary h-1.5" />
+                      <span className="text-sm font-bold w-10 text-right tabular-nums">{paySettings.prepayPercent}%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Срок действия ссылки (ч.)</Label>
+                    <div className="flex items-center gap-2">
+                      <input type="range" min="1" max="72" step="1" value={paySettings.linkExpiryHours}
+                        onChange={e => setPaySettings(s => ({ ...s, linkExpiryHours: Number(e.target.value) }))}
+                        className="flex-1 accent-primary h-1.5" />
+                      <span className="text-sm font-bold w-10 text-right tabular-nums">{paySettings.linkExpiryHours}ч</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/20">
+                  <div>
+                    <p className="text-xs font-medium">Автоотмена брони</p>
+                    <p className="text-[10px] text-muted-foreground">Отменять бронь если оплата не поступила через {paySettings.autoCancelHours || 48}ч</p>
+                  </div>
+                  <Switch checked={paySettings.autoCancelHours > 0} onCheckedChange={v => setPaySettings(s => ({ ...s, autoCancelHours: v ? 48 : 0 }))} />
+                </div>
+                <Button className="w-full h-8 text-xs" onClick={() => toast.success("Настройки оплаты сохранены")}>
+                  Сохранить настройки
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tariff constructor tab */}
+          <TabsContent value="tariff" className="space-y-5">
+            {(() => {
+              const plan = TARIFF_PLANS.find(p => p.id === tariff.plan) ?? TARIFF_PLANS[1];
+              const totalObjects = plan.baseObjects + tariff.extraObjects;
+              const totalEmployees = plan.baseEmployees + tariff.extraEmployees;
+              const objCost = calcObjectCost(tariff.extraObjects);
+              const empCost = calcEmployeeCost(tariff.extraEmployees);
+              const moduleCost = MODULES_LIST.reduce((sum, m) => {
+                if (!tariff.modules.includes(m.id)) return sum;
+                if (m.fixed) return sum + ((m as any).price ?? 0);
+                return sum + m.pricePerObj * totalObjects;
+              }, 0);
+              const total = plan.price + objCost + empCost + moduleCost;
+
+              const toggleModule = (id: string) => {
+                setTariff(t => ({
+                  ...t,
+                  modules: t.modules.includes(id) ? t.modules.filter(x => x !== id) : [...t.modules, id],
+                }));
+              };
+              const changeExtra = (field: "extraObjects" | "extraEmployees", delta: number) => {
+                setTariff(t => ({ ...t, [field]: Math.max(0, t[field] + delta) }));
+              };
+
+              return (
+                <>
+                  {/* Step 1: Plan selection */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold">1</span>
+                      Базовая подписка
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {TARIFF_PLANS.map(p => {
+                        const active = tariff.plan === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => setTariff(t => ({ ...t, plan: p.id as any, extraObjects: 0, extraEmployees: 0 }))}
+                            className={cn("relative rounded-xl border p-4 text-left transition-all", active ? p.activeColor : "border-border/50 bg-card/20 hover:border-border")}
+                          >
+                            {(p as any).badge && (
+                              <span className="absolute -top-2 left-3 px-2 py-0.5 rounded-full bg-indigo-600 text-[10px] font-bold text-white">{(p as any).badge}</span>
+                            )}
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="text-base">{p.emoji}</span>
+                              <span className={cn("text-xs font-bold uppercase tracking-widest", active ? "text-foreground" : "text-muted-foreground")}>{p.name}</span>
+                            </div>
+                            <div className="flex items-end gap-1 mb-2">
+                              <span className="text-2xl font-black">{p.price.toLocaleString("ru")}</span>
+                              <span className="text-xs text-muted-foreground mb-0.5">₽ / мес</span>
+                            </div>
+                            <ul className="space-y-1">
+                              {p.features.map(f => (
+                                <li key={f} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <CheckCircle2 className={cn("w-3 h-3 shrink-0", active ? "text-emerald-400" : "text-muted-foreground/40")} />
+                                  {f}
+                                </li>
+                              ))}
+                            </ul>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Step 2: Objects and Employees */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold">2</span>
+                      Конструктор ресурсов
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Objects */}
+                      <div className="rounded-xl border border-border/50 bg-card/20 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Building2 className="w-4 h-4 text-blue-400" />
+                          <div>
+                            <p className="text-sm font-semibold">Объекты</p>
+                            <p className="text-[10px] text-muted-foreground">VR-клубы / залы</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs text-muted-foreground">Включено в тариф: <strong className="text-foreground">{plan.baseObjects}</strong></span>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => changeExtra("extraObjects", -1)} disabled={tariff.extraObjects === 0}
+                              className="w-7 h-7 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-center hover:bg-muted/40 disabled:opacity-30 transition-colors">
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center font-bold text-sm">{totalObjects}</span>
+                            <button onClick={() => changeExtra("extraObjects", 1)}
+                              className="w-7 h-7 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-center hover:bg-muted/40 transition-colors">
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground space-y-0.5 border-t border-border/30 pt-2">
+                          <div className="flex justify-between"><span>1–5 доп. объектов</span><span>2 000 ₽ / шт.</span></div>
+                          <div className="flex justify-between"><span>6–10 доп. объектов</span><span>1 800 ₽ / шт.</span></div>
+                          <div className="flex justify-between"><span>10+ доп. объектов</span><span>1 600 ₽ / шт.</span></div>
+                        </div>
+                        {tariff.extraObjects > 0 && (
+                          <div className="mt-2 flex items-center justify-between text-xs font-semibold">
+                            <span className="text-muted-foreground">+{tariff.extraObjects} объектов</span>
+                            <span className="text-blue-400">+{objCost.toLocaleString("ru")} ₽</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Employees */}
+                      <div className="rounded-xl border border-border/50 bg-card/20 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Users className="w-4 h-4 text-violet-400" />
+                          <div>
+                            <p className="text-sm font-semibold">Сотрудники</p>
+                            <p className="text-[10px] text-muted-foreground">Операторы и администраторы</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs text-muted-foreground">Включено в тариф: <strong className="text-foreground">{plan.baseEmployees}</strong></span>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => changeExtra("extraEmployees", -1)} disabled={tariff.extraEmployees === 0}
+                              className="w-7 h-7 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-center hover:bg-muted/40 disabled:opacity-30 transition-colors">
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center font-bold text-sm">{totalEmployees}</span>
+                            <button onClick={() => changeExtra("extraEmployees", 1)}
+                              className="w-7 h-7 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-center hover:bg-muted/40 transition-colors">
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground space-y-0.5 border-t border-border/30 pt-2">
+                          <div className="flex justify-between"><span>1–10 доп. сотрудников</span><span>400 ₽ / чел.</span></div>
+                          <div className="flex justify-between"><span>11–30 доп. сотрудников</span><span>300 ₽ / чел.</span></div>
+                          <div className="flex justify-between"><span>30+ доп. сотрудников</span><span>200 ₽ / чел.</span></div>
+                        </div>
+                        {tariff.extraEmployees > 0 && (
+                          <div className="mt-2 flex items-center justify-between text-xs font-semibold">
+                            <span className="text-muted-foreground">+{tariff.extraEmployees} сотрудников</span>
+                            <span className="text-violet-400">+{empCost.toLocaleString("ru")} ₽</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Modules */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold">3</span>
+                      Дополнительные модули
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {MODULES_LIST.map(mod => {
+                        const active = tariff.modules.includes(mod.id);
+                        const modPrice = mod.fixed
+                          ? ((mod as any).price ?? 0)
+                          : mod.pricePerObj * totalObjects;
+                        return (
+                          <button
+                            key={mod.id}
+                            onClick={() => toggleModule(mod.id)}
+                            className={cn(
+                              "flex items-start gap-3 p-3 rounded-xl border text-left transition-all",
+                              active
+                                ? "border-primary/50 bg-primary/8 ring-1 ring-primary/20"
+                                : "border-border/50 bg-card/20 hover:border-border"
+                            )}
+                          >
+                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 border transition-colors",
+                              active ? "bg-primary/15 border-primary/30" : "bg-muted/20 border-border/40")}>
+                              <mod.icon className={cn("w-4 h-4", active ? "text-primary" : "text-muted-foreground")} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className={cn("text-xs font-semibold leading-tight", active ? "text-foreground" : "text-muted-foreground")}>{mod.label}</p>
+                                <span className={cn("text-[11px] font-bold shrink-0", active ? "text-primary" : "text-muted-foreground/70")}>
+                                  {modPrice.toLocaleString("ru")} ₽
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-tight">{mod.desc}</p>
+                              <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                                {mod.fixed ? "фикс." : `${mod.pricePerObj.toLocaleString("ru")} ₽ × ${totalObjects} объект${totalObjects === 1 ? "" : totalObjects < 5 ? "а" : "ов"}`}
+                              </p>
+                            </div>
+                            {active && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-bold flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-primary" /> Итого к оплате
+                      </p>
+                      <p className="text-xl font-black text-primary">{total.toLocaleString("ru")} ₽<span className="text-xs font-normal text-muted-foreground ml-1">/ мес</span></p>
+                    </div>
+                    <div className="space-y-1 text-xs text-muted-foreground border-t border-border/30 pt-3">
+                      <div className="flex justify-between"><span>Базовый тариф {plan.name}</span><span className="text-foreground font-medium">{plan.price.toLocaleString("ru")} ₽</span></div>
+                      {tariff.extraObjects > 0 && <div className="flex justify-between"><span>+{tariff.extraObjects} объектов</span><span className="text-blue-400 font-medium">+{objCost.toLocaleString("ru")} ₽</span></div>}
+                      {tariff.extraEmployees > 0 && <div className="flex justify-between"><span>+{tariff.extraEmployees} сотрудников</span><span className="text-violet-400 font-medium">+{empCost.toLocaleString("ru")} ₽</span></div>}
+                      {tariff.modules.map(mid => {
+                        const m = MODULES_LIST.find(x => x.id === mid);
+                        if (!m) return null;
+                        const mp = m.fixed ? ((m as any).price ?? 0) : m.pricePerObj * totalObjects;
+                        return <div key={mid} className="flex justify-between"><span>{m.label}</span><span className="text-primary/80 font-medium">+{mp.toLocaleString("ru")} ₽</span></div>;
+                      })}
+                    </div>
+                    <Button className="w-full mt-3 h-8 text-xs" onClick={() => toast.success("Тариф сохранён")}>
+                      Сохранить тариф
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </div>

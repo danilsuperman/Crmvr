@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Lock, CreditCard, Star, Building2, Camera, CheckCircle2 } from "lucide-react";
+import { User, Lock, CreditCard, Building2, Camera } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,22 +10,6 @@ import { useLocalStorage } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const TARIFF_PLANS = [
-  { id: "free", name: "Бесплатный", price: 0, tag: "", maxParks: 1, maxEmployees: 3, color: "border-border/50 bg-card/20" },
-  { id: "basic", name: "Базовый", price: 2990, tag: "", maxParks: 1, maxEmployees: 10, color: "border-blue-500/40 bg-blue-500/5" },
-  { id: "pro", name: "Профессиональный", price: 7990, tag: "Популярный", maxParks: 5, maxEmployees: 50, color: "border-primary/40 bg-primary/5" },
-  { id: "enterprise", name: "Корпоративный", price: 0, tag: "Под запрос", maxParks: 999, maxEmployees: 999, color: "border-violet-500/40 bg-violet-500/5" },
-] as const;
-
-const TARIFF_SECTIONS = [
-  { key: "bookings", label: "Бронирования" },
-  { key: "analytics", label: "Аналитика" },
-  { key: "devices", label: "Устройства" },
-  { key: "clients", label: "Клиенты" },
-  { key: "constructor", label: "Конструктор" },
-  { key: "salary", label: "Зарплата" },
-  { key: "network", label: "Сеть парков" },
-] as const;
 
 export default function Profile() {
   const [profile, setProfile] = useLocalStorage("vrpark_profile", {
@@ -54,13 +38,6 @@ export default function Profile() {
     autoPayment: false,
   });
   const [paymentSaved, setPaymentSaved] = useState(false);
-
-  const [tariff, setTariff] = useLocalStorage("vrpark_tariff", {
-    plan: "pro" as "free" | "basic" | "pro" | "enterprise",
-    maxParks: 5,
-    maxEmployees: 50,
-    sections: { bookings: true, analytics: true, devices: true, clients: true, constructor: true, salary: true, network: false },
-  });
 
   const fullName = [profile.surname, profile.firstName, profile.patronymic].filter(Boolean).join(" ") || "—";
 
@@ -103,9 +80,6 @@ export default function Profile() {
               </TabsTrigger>
               <TabsTrigger value="payment" className="text-xs flex items-center gap-1.5">
                 <CreditCard className="w-3 h-3" /> Платежи
-              </TabsTrigger>
-              <TabsTrigger value="tariff" className="text-xs flex items-center gap-1.5">
-                <Star className="w-3 h-3" /> Тариф
               </TabsTrigger>
             </TabsList>
 
@@ -302,99 +276,6 @@ export default function Profile() {
               </Button>
             </TabsContent>
 
-            {/* Tariff */}
-            <TabsContent value="tariff" className="space-y-4">
-              <Card className="bg-card/30 border-border/50">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm">Выбор тарифа</CardTitle>
-                  <CardDescription className="text-xs">Текущий тариф определяет доступные функции</CardDescription>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    {TARIFF_PLANS.map(plan => (
-                      <button
-                        key={plan.id}
-                        onClick={() => setTariff(t => ({
-                          ...t,
-                          plan: plan.id,
-                          maxParks: plan.maxParks === 999 ? t.maxParks : plan.maxParks,
-                          maxEmployees: plan.maxEmployees === 999 ? t.maxEmployees : plan.maxEmployees,
-                        }))}
-                        className={cn("relative p-3 rounded-xl border text-left transition-all", plan.color, tariff.plan === plan.id ? "ring-2 ring-primary/60" : "hover:opacity-80")}
-                      >
-                        {plan.tag && (
-                          <span className="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">{plan.tag}</span>
-                        )}
-                        <p className={cn("text-xs font-semibold", tariff.plan === plan.id ? "text-primary" : "")}>{plan.name}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {plan.price === 0
-                            ? (plan.id === "enterprise" ? "По договору" : "Бесплатно")
-                            : `${plan.price.toLocaleString("ru")} ₽/мес`}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/30 border-border/50">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm">Лимиты</CardTitle>
-                  <CardDescription className="text-xs">Максимальное количество парков и сотрудников</CardDescription>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Макс. парков</Label>
-                      <div className="flex gap-2 items-center">
-                        <Input className="h-8 text-sm" type="number" min="1" max="100" value={tariff.maxParks} onChange={e => setTariff(t => ({ ...t, maxParks: Number(e.target.value) || 1 }))} />
-                        <span className="text-xs text-muted-foreground shrink-0">шт.</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Макс. сотрудников</Label>
-                      <div className="flex gap-2 items-center">
-                        <Input className="h-8 text-sm" type="number" min="1" max="500" value={tariff.maxEmployees} onChange={e => setTariff(t => ({ ...t, maxEmployees: Number(e.target.value) || 1 }))} />
-                        <span className="text-xs text-muted-foreground shrink-0">чел.</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card/30 border-border/50">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm">Доступные разделы</CardTitle>
-                  <CardDescription className="text-xs">Настройте, какие разделы CRM доступны на текущем тарифе</CardDescription>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {TARIFF_SECTIONS.map(sec => {
-                      const active = tariff.sections[sec.key as keyof typeof tariff.sections] ?? false;
-                      return (
-                        <button
-                          key={sec.key}
-                          onClick={() => setTariff(t => ({ ...t, sections: { ...t.sections, [sec.key]: !active } }))}
-                          className={cn(
-                            "flex items-center gap-1.5 p-2.5 rounded-lg border text-xs transition-all text-left",
-                            active
-                              ? "border-green-500/40 bg-green-500/8 text-green-400"
-                              : "border-border/50 bg-card/20 text-muted-foreground/60"
-                          )}
-                        >
-                          <CheckCircle2 className={cn("w-3.5 h-3.5 shrink-0", active ? "text-green-400" : "text-muted-foreground/30")} />
-                          {sec.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Button className="w-full h-8 text-xs" onClick={() => toast.success("Тариф сохранён")}>
-                Сохранить тариф
-              </Button>
-            </TabsContent>
           </Tabs>
         </div>
       </div>

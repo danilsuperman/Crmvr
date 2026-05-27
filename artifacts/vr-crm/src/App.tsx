@@ -19,6 +19,7 @@ import Registration from "@/pages/registration";
 import Landing from "@/pages/landing";
 import Network from "@/pages/network";
 import Pricing from "@/pages/pricing";
+import Cameras from "@/pages/cameras";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function Router() {
         <Route path="/settings" component={Settings} />
         <Route path="/network" component={Network} />
         <Route path="/profile" component={Profile} />
+        <Route path="/cameras" component={Cameras} />
         <Route component={NotFound} />
       </Switch>
     </Shell>
