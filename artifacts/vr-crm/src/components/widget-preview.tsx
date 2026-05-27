@@ -360,7 +360,13 @@ function ZoneDetail({
 }) {
   const [photoIdx, setPhotoIdx] = useState(0);
   const photos = zoneMedia.photos;
-  const games = DEFAULT_ZONE_GAMES[zone.id] || [];
+
+  // Load real games from localStorage; fall back to static defaults for legacy zone IDs
+  const [storedGames] = useLocalStorage<Array<{ id: string; name: string; genre: string; age: string; players: string; duration: string; desc: string; enabled: boolean }>>("vrpark_games", []);
+  const enabledStoredGames = storedGames.filter(g => g.enabled);
+  const games = enabledStoredGames.length > 0
+    ? enabledStoredGames
+    : (DEFAULT_ZONE_GAMES[zone.id] || []);
 
   return (
     <div className="flex flex-col h-full">
@@ -566,7 +572,7 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
     };
   });
 
-  const [step, setStep] = useState<"zones" | "zone-detail" | "datetime" | "contact" | "done">("zones");
+  const [step, setStep] = useState<"zones" | "zone-detail" | "datetime" | "contact" | "done" | "payment">("zones");
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -583,6 +589,11 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
   const handleBook = () => {
     setSubmitting(true);
     setTimeout(() => { setSubmitting(false); setStep("done"); }, 1200);
+  };
+
+  const handlePrepayBook = () => {
+    setSubmitting(true);
+    setTimeout(() => { setSubmitting(false); setStep("payment"); }, 1000);
   };
 
   if (step === "done") {
@@ -610,6 +621,57 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
           ))}
         </div>
         <p className="text-xs text-muted-foreground">SMS с подтверждением отправлено на {contact.phone || "ваш номер"}</p>
+      </div>
+    );
+  }
+
+  if (step === "payment") {
+    const st = sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId) : null;
+    const stPriceMode = (st as any)?.priceMode ?? "per_person";
+    const stPriceVal = st?.price ?? 1200;
+    const guestsNum = parseInt(guests) || 1;
+    const total = stPriceMode === "per_zone_time" ? stPriceVal : stPriceVal * guestsNum;
+    const prepay = Math.round(total * 0.3);
+    const payLink = `https://pay.vrpark.co/prepay?amount=${prepay}&zone=${encodeURIComponent(zone?.name ?? "")}&time=${selectedTime}`;
+    return (
+      <div className="flex flex-col h-full items-center justify-center p-6 gap-5 text-center">
+        <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+          <CreditCard className="w-8 h-8 text-amber-400" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold">Бронь зарезервирована!</h3>
+          <p className="text-sm text-muted-foreground mt-1">Внесите предоплату для подтверждения</p>
+        </div>
+        <div className="w-full space-y-2 text-xs">
+          <div className="flex justify-between p-2.5 rounded-lg bg-card/40 border border-border/50">
+            <span className="text-muted-foreground">Зона</span>
+            <span className="font-medium">{zone?.name}</span>
+          </div>
+          <div className="flex justify-between p-2.5 rounded-lg bg-card/40 border border-border/50">
+            <span className="text-muted-foreground">Дата и время</span>
+            <span className="font-medium">{format(selectedDate, "d MMM", { locale: ruLocale })}, {selectedTime}</span>
+          </div>
+          <div className="flex justify-between p-2.5 rounded-lg bg-card/40 border border-border/50">
+            <span className="text-muted-foreground">Итого</span>
+            <span className="font-semibold text-primary">{total.toLocaleString("ru")} ₽</span>
+          </div>
+          <div className="flex justify-between p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <span className="text-amber-400 font-semibold">Предоплата 30%</span>
+            <span className="font-black text-amber-400 text-sm">{prepay.toLocaleString("ru")} ₽</span>
+          </div>
+        </div>
+        <a
+          href={payLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+        >
+          <CreditCard className="w-4 h-4" />
+          Перейти к оплате {prepay.toLocaleString("ru")} ₽
+        </a>
+        <button onClick={() => setStep("contact")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          ← Вернуться к форме
+        </button>
       </div>
     );
   }
@@ -828,32 +890,22 @@ function ManualFlow({ onBack }: { onBack: () => void }) {
       </div>
       <div className="flex flex-col gap-2 mt-4">
         {/* Prepay button — prominent, always visible when phone filled */}
-        {contact.phone && (() => {
+        {contact.name && contact.phone && (() => {
           const st = sessionTypeId ? sessionTypes.find(s => s.id === sessionTypeId) : null;
           const stPriceMode = (st as any)?.priceMode ?? "per_person";
           const stPriceVal = st?.price ?? 1200;
           const guestsNum = parseInt(guests) || 1;
           const total = stPriceMode === "per_zone_time" ? stPriceVal : stPriceVal * guestsNum;
           const prepay = Math.round(total * 0.3);
-          const handlePrepay = () => {
-            const link = `https://pay.vrpark.co/prepay?amount=${prepay}&zone=${encodeURIComponent(zone?.name ?? "")}&time=${selectedTime}`;
-            navigator.clipboard?.writeText(link).catch(() => {});
-            setLinkCopied(true);
-            setTimeout(() => setLinkCopied(false), 2500);
-          };
           return (
             <button
-              onClick={handlePrepay}
-              className={cn(
-                "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all",
-                linkCopied
-                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-400"
-                  : "border-amber-500/40 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15"
-              )}
+              disabled={submitting}
+              onClick={handlePrepayBook}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all font-semibold disabled:opacity-50"
             >
               <span className="flex items-center gap-1.5 text-xs">
-                {linkCopied ? <CheckCircle2 className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
-                {linkCopied ? "Ссылка скопирована!" : "Внести предоплату"}
+                {submitting ? <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                Внести предоплату
               </span>
               <span className="text-base font-black tabular-nums">{prepay.toLocaleString("ru")} ₽</span>
             </button>
