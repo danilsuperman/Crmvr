@@ -42,8 +42,6 @@ function Router() {
         <Route path="/dashboard" component={Home} />
         <Route path="/control" component={Control} />
         <Route path="/control/:id" component={DeviceDetail} />
-        <Route path="/devices" component={Devices} />
-        <Route path="/devices/add" component={DeviceAdd} />
         <Route path="/clients/segments/new" component={ClientsSegmentNew} />
         <Route path="/clients/segments" component={ClientsSegments} />
         <Route path="/clients" component={Clients} />

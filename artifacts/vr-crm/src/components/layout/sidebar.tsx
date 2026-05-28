@@ -21,7 +21,6 @@ const PARK_COLORS = ["#6366f1", "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10
 const navItems = [
   { href: "/dashboard", icon: BookOpen, label: "Брони" },
   { href: "/control", icon: Monitor, label: "Центр управления" },
-  { href: "/devices", icon: Cpu, label: "Устройства" },
   { href: "/clients", icon: Users, label: "Клиенты" },
   { href: "/analytics", icon: BarChart3, label: "Аналитика" },
   { href: "/inbox", icon: MessageSquare, label: "Сообщения" },

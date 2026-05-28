@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocalStorage } from "@/lib/store";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DevicesTab } from "@/components/settings/devices-tab";
 import {
   useListZones,
   useListSessionTypes,
@@ -180,6 +181,24 @@ export default function Settings() {
   const [settingsCameras, setSettingsCameras] = useLocalStorage<Array<{ id: string; name: string; url: string; zoneId?: number; ai: boolean; resolution: string; fps: number; enabled: boolean; type: string }>>("vrpark_settings_cameras", []);
   const [cameraForm, setCameraForm] = useState({ name: "", url: "", zoneId: "", type: "rtsp", resolution: "1080p", fps: "30", ai: true });
   const [addCameraOpen, setAddCameraOpen] = useState(false);
+  const [sysSettings, setSysSettings] = useLocalStorage("vrpark_system_settings", {
+    parkName: "VR Park Moscow",
+    city: "Москва",
+    phone: "+7 (999) 123-45-67",
+    email: "info@vrpark.co",
+    website: "vrpark.co",
+    timezone: "Europe/Moscow",
+    language: "ru",
+    workFrom: "10:00",
+    workTo: "22:00",
+    workDays: ["mon","tue","wed","thu","fri","sat","sun"] as string[],
+    notifNewBooking: true,
+    notifCancelBooking: true,
+    notifLowBattery: true,
+    notifDeviceError: true,
+    currency: "RUB",
+    dateFormat: "DD.MM.YYYY",
+  });
 
   // Zone modal
   const [zoneModal, setZoneModal] = useState<{
@@ -278,6 +297,7 @@ export default function Settings() {
             <TabsTrigger value="users" className="text-xs">Пользователи</TabsTrigger>
             <TabsTrigger value="sms" className="text-xs">SMS</TabsTrigger>
             <TabsTrigger value="salary" className="text-xs">Зарплата</TabsTrigger>
+            <TabsTrigger value="devices" className="text-xs flex items-center gap-1"><MonitorSpeaker className="w-3 h-3" /> Устройства</TabsTrigger>
             <TabsTrigger value="system" className="text-xs">Система</TabsTrigger>
             <TabsTrigger value="channels" className="text-xs flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Каналы</TabsTrigger>
             <TabsTrigger value="cameras" className="text-xs flex items-center gap-1"><Camera className="w-3 h-3" /> Камеры</TabsTrigger>
@@ -761,16 +781,223 @@ export default function Settings() {
           </TabsContent>
 
           {/* System tab */}
-          <TabsContent value="system">
-            <Card className="bg-card/30 border-border/50">
-              <CardHeader>
-                <CardTitle className="text-base">Системные настройки</CardTitle>
-                <CardDescription>Общая конфигурация парка.</CardDescription>
-              </CardHeader>
-              <div className="px-6 pb-6">
-                <p className="text-sm text-muted-foreground">Рабочие часы и глобальные настройки — скоро.</p>
-              </div>
-            </Card>
+          {/* Devices tab */}
+          <TabsContent value="devices">
+            <DevicesTab />
+          </TabsContent>
+
+          {/* System tab */}
+          <TabsContent value="system" className="space-y-5">
+            {(() => {
+              const DAYS = [
+                { id: "mon", label: "Пн" },
+                { id: "tue", label: "Вт" },
+                { id: "wed", label: "Ср" },
+                { id: "thu", label: "Чт" },
+                { id: "fri", label: "Пт" },
+                { id: "sat", label: "Сб" },
+                { id: "sun", label: "Вс" },
+              ];
+              const toggleDay = (id: string) => setSysSettings(s => ({
+                ...s,
+                workDays: s.workDays.includes(id)
+                  ? s.workDays.filter(d => d !== id)
+                  : [...s.workDays, id],
+              }));
+              return (
+                <>
+                  {/* Park info */}
+                  <Card className="bg-card/30 border-border/50">
+                    <CardHeader className="pb-3 pt-4 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-blue-400" /> Информация о парке
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Название парка</Label>
+                          <Input className="h-8 text-sm" value={sysSettings.parkName} onChange={e => setSysSettings(s => ({ ...s, parkName: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Город</Label>
+                          <Input className="h-8 text-sm" value={sysSettings.city} onChange={e => setSysSettings(s => ({ ...s, city: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Телефон</Label>
+                          <Input className="h-8 text-sm" value={sysSettings.phone} onChange={e => setSysSettings(s => ({ ...s, phone: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Email</Label>
+                          <Input className="h-8 text-sm" type="email" value={sysSettings.email} onChange={e => setSysSettings(s => ({ ...s, email: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5 col-span-2">
+                          <Label className="text-xs">Сайт</Label>
+                          <Input className="h-8 text-sm" value={sysSettings.website} onChange={e => setSysSettings(s => ({ ...s, website: e.target.value }))} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Working hours */}
+                  <Card className="bg-card/30 border-border/50">
+                    <CardHeader className="pb-3 pt-4 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-emerald-400" /> Режим работы
+                      </CardTitle>
+                      <CardDescription className="text-xs">Базовые рабочие часы парка (применяются к новым зонам)</CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-4">
+                      <div className="flex gap-3 items-end">
+                        <div className="space-y-1.5 flex-1">
+                          <Label className="text-xs">Открытие</Label>
+                          <Input type="time" className="h-8 text-sm" value={sysSettings.workFrom} onChange={e => setSysSettings(s => ({ ...s, workFrom: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5 flex-1">
+                          <Label className="text-xs">Закрытие</Label>
+                          <Input type="time" className="h-8 text-sm" value={sysSettings.workTo} onChange={e => setSysSettings(s => ({ ...s, workTo: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Рабочие дни</Label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {DAYS.map(day => (
+                            <button
+                              key={day.id}
+                              onClick={() => toggleDay(day.id)}
+                              className={cn(
+                                "w-9 h-9 rounded-lg text-xs font-semibold border transition-colors",
+                                sysSettings.workDays.includes(day.id)
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "border-border/50 text-muted-foreground hover:border-border"
+                              )}
+                            >
+                              {day.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Localization */}
+                  <Card className="bg-card/30 border-border/50">
+                    <CardHeader className="pb-3 pt-4 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-violet-400" /> Локализация
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Часовой пояс</Label>
+                          <Select value={sysSettings.timezone} onValueChange={v => setSysSettings(s => ({ ...s, timezone: v }))}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Europe/Moscow">Москва (UTC+3)</SelectItem>
+                              <SelectItem value="Europe/Kaliningrad">Калининград (UTC+2)</SelectItem>
+                              <SelectItem value="Asia/Yekaterinburg">Екатеринбург (UTC+5)</SelectItem>
+                              <SelectItem value="Asia/Novosibirsk">Новосибирск (UTC+7)</SelectItem>
+                              <SelectItem value="Asia/Vladivostok">Владивосток (UTC+10)</SelectItem>
+                              <SelectItem value="Asia/Dubai">Дубай (UTC+4)</SelectItem>
+                              <SelectItem value="Europe/London">Лондон (UTC+0)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Язык интерфейса</Label>
+                          <Select value={sysSettings.language} onValueChange={v => setSysSettings(s => ({ ...s, language: v }))}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ru">Русский</SelectItem>
+                              <SelectItem value="en">English</SelectItem>
+                              <SelectItem value="ar">العربية</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Валюта отображения</Label>
+                          <div className="flex gap-1.5">
+                            {(["RUB","USD","EUR","AED"] as const).map(c => (
+                              <button key={c} onClick={() => setSysSettings(s => ({ ...s, currency: c }))}
+                                className={cn("flex-1 h-8 text-xs rounded-lg border font-medium transition-colors",
+                                  sysSettings.currency === c
+                                    ? "border-primary bg-primary/10 text-foreground"
+                                    : "border-border/50 text-muted-foreground hover:bg-muted/20"
+                                )}>
+                                {c}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Формат даты</Label>
+                          <Select value={sysSettings.dateFormat} onValueChange={v => setSysSettings(s => ({ ...s, dateFormat: v }))}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="DD.MM.YYYY">ДД.ММ.ГГГГ</SelectItem>
+                              <SelectItem value="MM/DD/YYYY">ММ/ДД/ГГГГ</SelectItem>
+                              <SelectItem value="YYYY-MM-DD">ГГГГ-ММ-ДД</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Notifications */}
+                  <Card className="bg-card/30 border-border/50">
+                    <CardHeader className="pb-3 pt-4 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-yellow-400" /> Уведомления администратора
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-2">
+                      {[
+                        { key: "notifNewBooking", label: "Новое бронирование", desc: "Уведомить при создании брони" },
+                        { key: "notifCancelBooking", label: "Отмена бронирования", desc: "Уведомить при отмене" },
+                        { key: "notifLowBattery", label: "Низкий заряд устройств", desc: "Когда заряд шлема < 20%" },
+                        { key: "notifDeviceError", label: "Ошибки устройств", desc: "Сбои и технические ошибки" },
+                      ].map(item => (
+                        <div key={item.key} className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-card/20">
+                          <div>
+                            <p className="text-xs font-medium">{item.label}</p>
+                            <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                          </div>
+                          <Switch
+                            checked={sysSettings[item.key as keyof typeof sysSettings] as boolean}
+                            onCheckedChange={v => setSysSettings(s => ({ ...s, [item.key]: v }))}
+                          />
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  {/* Data management */}
+                  <Card className="bg-card/30 border-border/50">
+                    <CardHeader className="pb-3 pt-4 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-red-400" /> Данные и безопасность
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-2">
+                      <Button variant="outline" size="sm" className="w-full h-8 text-xs justify-start gap-2"
+                        onClick={() => { const data = JSON.stringify(Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith("vrpark_")))); const blob = new Blob([data], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "vrpark_backup.json"; a.click(); toast.success("Данные экспортированы"); }}>
+                        <ArrowUpRight className="w-3.5 h-3.5" /> Экспорт данных (JSON)
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full h-8 text-xs justify-start gap-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5"
+                        onClick={() => { if (confirm("Сбросить все настройки? Брони и клиенты сохранятся.")) { ["vrpark_system_settings","vrpark_pay_settings","vrpark_channel_settings","vrpark_channel_keys"].forEach(k => localStorage.removeItem(k)); toast.success("Настройки сброшены"); window.location.reload(); } }}>
+                        <AlertTriangle className="w-3.5 h-3.5" /> Сбросить настройки (без данных)
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Button className="w-full h-9 text-sm" onClick={() => toast.success("Системные настройки сохранены")}>
+                    Сохранить настройки
+                  </Button>
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* Channels tab */}
