@@ -7,7 +7,9 @@ import {
   Home, Calendar, Gamepad2, Heart, Users, Star, Gift, Zap, ChevronRight,
   Copy, Send, QrCode, ExternalLink, Clock, MapPin, Trophy, TrendingUp,
   Baby, Plus, X, Check, Sparkles, Bell, ChevronLeft, Crown, Shield,
-  Play, BarChart3, Target, Award, Flame, User,
+  Play, BarChart3, Target, Award, Flame, User, Settings, Code, Link2,
+  MessageCircle, Mail, Smartphone, Eye, Search, ToggleLeft, ToggleRight,
+  ArrowLeft, Ticket, ChevronDown, Hash,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -746,98 +748,188 @@ function FamilyTab() {
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Portal settings type ────────────────────────────────────────────────────
 
-export default function GuestPortal() {
-  const [_rawClients] = useLocalStorage<typeof MOCK_CLIENTS_FB>("vrpark_clients", MOCK_CLIENTS_FB);
-  const allClients = _rawClients.length > 0 ? _rawClients : MOCK_CLIENTS_FB;
+type PortalSettings = {
+  sections: { home: boolean; bookings: boolean; games: boolean; loyalty: boolean; family: boolean };
+  auth:     { sms: boolean; telegram: boolean; whatsapp: boolean; email: boolean; qr: boolean };
+  features: { payment: boolean; ai: boolean; ratings: boolean; family: boolean };
+};
 
-  const [selectedClientId, setSelectedClientId] = useState<number>(allClients[0]?.id ?? 1);
-  const [tab, setTab] = useState<GuestTab>("home");
-  const [linkCopied, setLinkCopied] = useState(false);
+const DEFAULT_SETTINGS: PortalSettings = {
+  sections: { home: true, bookings: true, games: true, loyalty: true, family: true },
+  auth:     { sms: true, telegram: true, whatsapp: false, email: false, qr: true },
+  features: { payment: true, ai: true, ratings: true, family: true },
+};
 
-  const client = useMemo(
-    () => allClients.find(c => c.id === selectedClientId) ?? allClients[0],
-    [allClients, selectedClientId]
+// Guests who have registered a portal (subset of all clients)
+const REGISTERED_GUESTS = [
+  { id: 1, registeredAt: "2026-03-12", lastActive: "2 дня назад",  visits: 4 },
+  { id: 2, registeredAt: "2026-04-01", lastActive: "5 дней назад", visits: 2 },
+  { id: 4, registeredAt: "2026-02-20", lastActive: "Сегодня",      visits: 9 },
+];
+
+// ─── Toggle helper ────────────────────────────────────────────────────────────
+
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle}
+      className={cn(
+        "w-10 h-5.5 rounded-full transition-colors relative shrink-0",
+        on ? "bg-violet-500" : "bg-muted/40 border border-border/50"
+      )}
+      style={{ height: "22px", width: "40px" }}
+    >
+      <span className={cn(
+        "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all",
+        on ? "left-[22px]" : "left-0.5"
+      )} />
+    </button>
   );
+}
 
-  const tier = useMemo(() => getClientTier(client?.loyaltyPoints ?? 0), [client]);
+// ─── Registration preview screen ─────────────────────────────────────────────
 
-  const portalLink = `https://guest.vrpark.co/${client?.phone.replace(/\D/g, "").slice(-7)}`;
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(portalLink).catch(() => {});
-    setLinkCopied(true);
-    toast.success("Ссылка скопирована");
-    setTimeout(() => setLinkCopied(false), 2500);
-  };
-
-  const tabs: { id: GuestTab; icon: React.ReactNode; label: string }[] = [
-    { id: "home",     icon: <Home className="w-4 h-4" />,       label: "Главная"   },
-    { id: "bookings", icon: <Calendar className="w-4 h-4" />,   label: "Брони"     },
-    { id: "games",    icon: <Gamepad2 className="w-4 h-4" />,   label: "Игры"      },
-    { id: "loyalty",  icon: <Heart className="w-4 h-4" />,      label: "Бонусы"    },
-    { id: "family",   icon: <Users className="w-4 h-4" />,      label: "Семья"     },
-  ];
-
-  if (!client) return null;
+function RegistrationScreen({ onEnter }: { onEnter: () => void }) {
+  const [step, setStep] = useState<"phone" | "code">("phone");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
 
   return (
     <div className="flex flex-col h-full bg-background">
-
-      {/* ── Admin control bar ──────────────────────────────────────────────── */}
-      <div className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm flex items-center px-4 gap-3 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-violet-500/20 flex items-center justify-center">
-            <User className="w-3.5 h-3.5 text-violet-400" />
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-xs space-y-6">
+          {/* Logo */}
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-3xl font-black text-white mx-auto shadow-lg shadow-violet-500/20">V</div>
+            <h1 className="text-xl font-black">VR Park</h1>
+            <p className="text-xs text-muted-foreground">Личный кабинет гостя</p>
           </div>
-          <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">Просмотр от имени:</span>
-        </div>
 
-        {/* Client selector */}
-        <select
-          value={selectedClientId}
-          onChange={e => { setSelectedClientId(Number(e.target.value)); setTab("home"); }}
-          className="h-7 px-2 rounded-lg bg-muted/20 border border-border/50 text-xs font-medium text-foreground focus:outline-none focus:border-violet-500/50 cursor-pointer max-w-[160px]"
-        >
-          {allClients.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+          {step === "phone" ? (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Номер телефона</label>
+                <div className="flex gap-2">
+                  <div className="h-11 px-3 rounded-2xl bg-muted/15 border border-border/40 flex items-center text-sm font-medium text-muted-foreground shrink-0">+7</div>
+                  <input
+                    type="tel"
+                    placeholder="916 123-45-67"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="flex-1 h-11 px-3 rounded-2xl bg-muted/15 border border-border/40 text-sm focus:outline-none focus:border-violet-500/60 placeholder:text-muted-foreground/40"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => { if (phone.replace(/\D/g,"").length >= 7) setStep("code"); }}
+                disabled={phone.replace(/\D/g,"").length < 7}
+                className="w-full h-12 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-bold text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+              >
+                Получить SMS-код
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border/40" />
+                <span className="text-[10px] text-muted-foreground">или войти через</span>
+                <div className="flex-1 h-px bg-border/40" />
+              </div>
+              <div className="flex gap-2">
+                {[
+                  { icon: "✈️", label: "Telegram",  color: "border-sky-500/30 text-sky-400 hover:bg-sky-500/10"   },
+                  { icon: "📱", label: "WhatsApp",  color: "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" },
+                  { icon: "✉️", label: "Email",      color: "border-border/40 text-muted-foreground hover:bg-muted/15"     },
+                ].map(m => (
+                  <button key={m.label} onClick={() => toast.info(`Вход через ${m.label}`)}
+                    className={cn("flex-1 h-9 rounded-xl text-[10px] font-medium border transition-colors flex flex-col items-center gap-0.5 justify-center", m.color)}>
+                    <span>{m.icon}</span>
+                    <span>{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Код отправлен на</p>
+                <p className="text-sm font-bold mt-0.5">+7 {phone}</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">SMS-код</label>
+                <input
+                  type="text"
+                  placeholder="1234"
+                  maxLength={4}
+                  value={code}
+                  onChange={e => setCode(e.target.value.replace(/\D/,""))}
+                  className="w-full h-14 px-4 rounded-2xl bg-muted/15 border border-border/40 text-2xl font-black text-center tracking-[0.5em] focus:outline-none focus:border-violet-500/60 placeholder:text-muted-foreground/30 placeholder:tracking-normal placeholder:text-base"
+                />
+              </div>
+              <button
+                onClick={() => { if (code.length === 4) onEnter(); }}
+                disabled={code.length < 4}
+                className="w-full h-12 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-bold text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+              >
+                Войти в кабинет
+              </button>
+              <button onClick={() => setStep("phone")} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                ← Изменить номер
+              </button>
+            </div>
+          )}
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={handleCopyLink}
-            className={cn(
-              "h-7 px-3 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all",
-              linkCopied
-                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
-                : "bg-muted/10 border-border/40 text-muted-foreground hover:border-violet-500/40 hover:text-violet-400"
-            )}
-          >
-            {linkCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            <span className="hidden sm:inline">{linkCopied ? "Скопировано" : "Ссылка"}</span>
-          </button>
-          <button
-            onClick={() => toast.info(`Отправка ссылки на ${client.phone}`)}
-            className="h-7 px-3 rounded-lg text-xs font-medium bg-muted/10 border border-border/40 text-muted-foreground hover:border-violet-500/40 hover:text-violet-400 transition-all flex items-center gap-1.5"
-          >
-            <Send className="w-3 h-3" />
-            <span className="hidden sm:inline">Отправить</span>
-          </button>
-          <Link href={`/clients/${client.id}`}>
-            <button className="h-7 px-3 rounded-lg text-xs font-medium bg-muted/10 border border-border/40 text-muted-foreground hover:border-border/60 hover:text-foreground transition-all flex items-center gap-1.5">
-              <ExternalLink className="w-3 h-3" />
-              <span className="hidden sm:inline">Карточка</span>
-            </button>
-          </Link>
+          {step === "phone" && (
+            <p className="text-[10px] text-muted-foreground text-center">
+              Нажимая «Получить код», вы соглашаетесь с{" "}
+              <span className="text-violet-400 cursor-pointer hover:underline">условиями использования</span>
+            </p>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* ── Portal content ─────────────────────────────────────────────────── */}
+// ─── Portal inner view ────────────────────────────────────────────────────────
+
+function PortalView({ client, settings, onBack }: {
+  client: typeof MOCK_CLIENTS_FB[0];
+  settings: PortalSettings;
+  onBack: () => void;
+}) {
+  const [tab, setTab] = useState<GuestTab>("home");
+  const tier = getClientTier(client.loyaltyPoints);
+
+  const enabledTabs = [
+    settings.sections.home     && { id: "home"     as GuestTab, icon: <Home className="w-4 h-4" />,     label: "Главная"  },
+    settings.sections.bookings && { id: "bookings" as GuestTab, icon: <Calendar className="w-4 h-4" />, label: "Брони"    },
+    settings.sections.games    && { id: "games"    as GuestTab, icon: <Gamepad2 className="w-4 h-4" />, label: "Игры"     },
+    settings.sections.loyalty  && { id: "loyalty"  as GuestTab, icon: <Heart className="w-4 h-4" />,    label: "Бонусы"   },
+    settings.sections.family   && { id: "family"   as GuestTab, icon: <Users className="w-4 h-4" />,    label: "Семья"    },
+  ].filter(Boolean) as { id: GuestTab; icon: React.ReactNode; label: string }[];
+
+  // ensure current tab is valid
+  const activeTab = enabledTabs.find(t => t.id === tab) ? tab : (enabledTabs[0]?.id ?? "home");
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Admin top bar */}
+      <div className="h-11 border-b border-border/50 bg-card/60 backdrop-blur-sm flex items-center px-4 gap-3 shrink-0">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" /> Назад к списку
+        </button>
+        <div className="flex-1" />
+        <span className="text-xs text-muted-foreground hidden sm:inline">Просмотр от имени:</span>
+        <span className="text-xs font-semibold">{client.name}</span>
+        <Link href={`/clients/${client.id}`}>
+          <button className="h-6 px-2.5 rounded-lg text-[10px] font-medium bg-muted/10 border border-border/40 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            <ExternalLink className="w-2.5 h-2.5" /> Карточка
+          </button>
+        </Link>
+      </div>
+
+      {/* Guest content */}
       <div className="flex-1 overflow-auto">
         <div className="max-w-md mx-auto px-4 pt-4 pb-24">
-
           {/* Guest header */}
           <div className="flex items-center gap-3 mb-5">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/40 to-indigo-500/30 flex items-center justify-center text-lg font-black border border-violet-500/20 shrink-0">
@@ -858,34 +950,423 @@ export default function GuestPortal() {
             </button>
           </div>
 
-          {/* Tab content */}
           <div>
-            {tab === "home"     && <HomeTab     client={client} tier={tier} />}
-            {tab === "bookings" && <BookingsTab />}
-            {tab === "games"    && <GamesTab    client={client} />}
-            {tab === "loyalty"  && <LoyaltyTab  client={client} tier={tier} />}
-            {tab === "family"   && <FamilyTab   />}
+            {activeTab === "home"     && <HomeTab     client={client} tier={tier} />}
+            {activeTab === "bookings" && <BookingsTab />}
+            {activeTab === "games"    && <GamesTab    client={client} />}
+            {activeTab === "loyalty"  && <LoyaltyTab  client={client} tier={tier} />}
+            {activeTab === "family"   && <FamilyTab   />}
           </div>
         </div>
       </div>
 
-      {/* ── Bottom tab bar (fixed) ──────────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-64 right-0 border-t border-border/50 bg-card/90 backdrop-blur-md">
+      {/* Bottom tabs */}
+      <div className="fixed bottom-0 left-64 right-0 border-t border-border/50 bg-card/90 backdrop-blur-md z-10">
         <div className="max-w-md mx-auto flex">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+          {enabledTabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors",
-                tab === t.id ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
+                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors relative",
+                activeTab === t.id ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              )}>
               {t.icon}
               <span className="text-[9px] font-medium">{t.label}</span>
-              {tab === t.id && <div className="absolute top-0 w-6 h-0.5 rounded-full bg-primary" />}
+              {activeTab === t.id && <div className="absolute top-0 w-6 h-0.5 rounded-full bg-primary" />}
             </button>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Settings tab ─────────────────────────────────────────────────────────────
+
+function SettingsTab({ settings, onChange }: { settings: PortalSettings; onChange: (s: PortalSettings) => void }) {
+  const sec = settings.sections;
+  const auth = settings.auth;
+  const feat = settings.features;
+
+  const toggleSection = (k: keyof typeof sec) => onChange({ ...settings, sections: { ...sec, [k]: !sec[k] } });
+  const toggleAuth    = (k: keyof typeof auth) => onChange({ ...settings, auth:     { ...auth, [k]: !auth[k] } });
+  const toggleFeat    = (k: keyof typeof feat) => onChange({ ...settings, features: { ...feat, [k]: !feat[k] } });
+
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="rounded-2xl border border-border/40 bg-card/20 overflow-hidden">
+      <div className="px-4 py-3 border-b border-border/30 bg-muted/10">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</p>
+      </div>
+      <div className="divide-y divide-border/20">{children}</div>
+    </div>
+  );
+
+  const Row = ({ label, sub, on, onToggle }: { label: string; sub?: string; on: boolean; onToggle: () => void }) => (
+    <div className="flex items-center justify-between px-4 py-3">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
+      <Toggle on={on} onToggle={onToggle} />
+    </div>
+  );
+
+  return (
+    <div className="space-y-4 pb-6">
+      <Section title="Разделы кабинета">
+        <Row label="Главная" sub="Следующая бронь, бонусы, AI-рекомендации" on={sec.home}     onToggle={() => toggleSection("home")}     />
+        <Row label="Брони"   sub="Создание, изменение, отмена броней"        on={sec.bookings} onToggle={() => toggleSection("bookings")} />
+        <Row label="Игры"    sub="Статистика, история, рейтинги"             on={sec.games}    onToggle={() => toggleSection("games")}    />
+        <Row label="Лояльность" sub="Бонусы, промокоды, история начислений"  on={sec.loyalty}  onToggle={() => toggleSection("loyalty")}  />
+        <Row label="Семья"   sub="Дети, члены семьи, групповые брони"        on={sec.family}   onToggle={() => toggleSection("family")}   />
+      </Section>
+
+      <Section title="Варианты регистрации и входа">
+        <Row label="SMS-код"   sub="Вход по номеру телефона + одноразовый код" on={auth.sms}      onToggle={() => toggleAuth("sms")}      />
+        <Row label="Telegram"  sub="Кнопка «Войти через Telegram»"             on={auth.telegram} onToggle={() => toggleAuth("telegram")} />
+        <Row label="WhatsApp"  sub="Magic Link через WhatsApp"                 on={auth.whatsapp} onToggle={() => toggleAuth("whatsapp")} />
+        <Row label="Email"     sub="Magic Link на почту"                       on={auth.email}    onToggle={() => toggleAuth("email")}    />
+        <Row label="QR-код"    sub="Сканирование QR после визита"              on={auth.qr}       onToggle={() => toggleAuth("qr")}       />
+      </Section>
+
+      <Section title="Функции">
+        <Row label="Онлайн оплата"    sub="Apple Pay, Google Pay, карта"     on={feat.payment}  onToggle={() => toggleFeat("payment")}  />
+        <Row label="AI рекомендации"  sub="Персональные предложения"         on={feat.ai}       onToggle={() => toggleFeat("ai")}       />
+        <Row label="Рейтинги"         sub="Место в парке и городе"           on={feat.ratings}  onToggle={() => toggleFeat("ratings")}  />
+        <Row label="Семейные пакеты"  sub="Дни рождения, групповые брони"    on={feat.family}   onToggle={() => toggleFeat("family")}   />
+      </Section>
+
+      <button
+        onClick={() => toast.success("Настройки сохранены")}
+        className="w-full h-11 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-bold text-white hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+      >
+        <Check className="w-4 h-4" /> Сохранить настройки
+      </button>
+    </div>
+  );
+}
+
+// ─── Embed tab ────────────────────────────────────────────────────────────────
+
+function EmbedTab({ onPreview }: { onPreview: () => void }) {
+  const regLink    = "https://vrpark.co/join/vr8s72hs";
+  const widgetCode = `<script src="https://vrpark.co/widget.js"></script>\n<script>\n  VRParkWidget.init({\n    parkId: "vrpark_moscow",\n    theme: "dark",\n    lang: "ru"\n  });\n</script>`;
+
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const copy = (text: string, which: "link" | "code") => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    if (which === "link") { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2500); }
+    else                  { setCopiedCode(true); setTimeout(() => setCopiedCode(false), 2500); }
+    toast.success(which === "link" ? "Ссылка скопирована" : "Код скопирован");
+  };
+
+  return (
+    <div className="space-y-4 pb-6">
+      {/* Preview button */}
+      <button
+        onClick={onPreview}
+        className="w-full h-12 rounded-2xl border-2 border-violet-500/40 bg-violet-500/8 text-sm font-bold text-violet-300 hover:bg-violet-500/15 transition-colors flex items-center justify-center gap-2"
+      >
+        <Eye className="w-4 h-4" /> Просмотреть кабинет гостя
+      </button>
+
+      {/* Registration link */}
+      <div className="rounded-2xl border border-border/40 bg-card/20 overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/30 bg-muted/10 flex items-center gap-2">
+          <Link2 className="w-3.5 h-3.5 text-violet-400" />
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ссылка для регистрации</p>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-muted-foreground">Отправьте гостю — перейдя по ссылке, он сразу попадает в форму регистрации.</p>
+          <div className="flex gap-2">
+            <div className="flex-1 h-9 px-3 rounded-xl bg-muted/15 border border-border/40 flex items-center text-xs font-mono text-muted-foreground overflow-hidden">
+              <span className="truncate">{regLink}</span>
+            </div>
+            <button onClick={() => copy(regLink, "link")}
+              className={cn(
+                "h-9 px-3 rounded-xl text-xs font-medium border flex items-center gap-1.5 shrink-0 transition-all",
+                copiedLink ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-muted/10 border-border/40 text-muted-foreground hover:border-violet-500/40 hover:text-violet-400"
+              )}>
+              {copiedLink ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              {copiedLink ? "Скопировано" : "Скопировать"}
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => toast.info("Отправка SMS с ссылкой...")}
+              className="flex-1 h-8 rounded-xl text-xs border border-border/40 text-muted-foreground hover:border-border/60 hover:text-foreground transition-colors flex items-center justify-center gap-1.5">
+              <Smartphone className="w-3 h-3" /> Отправить SMS
+            </button>
+            <button onClick={() => toast.info("Отправка в Telegram...")}
+              className="flex-1 h-8 rounded-xl text-xs border border-sky-500/30 text-sky-400 hover:bg-sky-500/10 transition-colors flex items-center justify-center gap-1.5">
+              ✈️ Telegram
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Widget embed */}
+      <div className="rounded-2xl border border-border/40 bg-card/20 overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/30 bg-muted/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Code className="w-3.5 h-3.5 text-amber-400" />
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Код виджета</p>
+          </div>
+          <button onClick={() => copy(widgetCode, "code")}
+            className={cn(
+              "h-6 px-2.5 rounded-lg text-[10px] font-medium border flex items-center gap-1 transition-all",
+              copiedCode ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-muted/10 border-border/40 text-muted-foreground hover:border-amber-500/40 hover:text-amber-400"
+            )}>
+            {copiedCode ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
+            {copiedCode ? "Скопировано" : "Скопировать"}
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-muted-foreground">Вставьте код на любой сайт — форма входа появится как всплывающий виджет.</p>
+          <pre className="text-[10px] font-mono text-emerald-400 bg-muted/15 rounded-xl p-3 overflow-x-auto leading-relaxed whitespace-pre-wrap border border-border/30">
+{widgetCode}
+          </pre>
+        </div>
+      </div>
+
+      {/* QR placeholder */}
+      <div className="rounded-2xl border border-border/40 bg-card/20 overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/30 bg-muted/10 flex items-center gap-2">
+          <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">QR-код для регистрации</p>
+        </div>
+        <div className="p-4 flex items-center gap-4">
+          <div className="w-20 h-20 rounded-xl bg-white flex items-center justify-center shrink-0">
+            <div className="grid grid-cols-5 gap-0.5">
+              {Array.from({ length: 25 }).map((_, i) => (
+                <div key={i} className={cn("w-2.5 h-2.5 rounded-sm", [0,1,2,3,4,5,9,10,14,15,19,20,21,22,23,24,6,12,7,11,13,17].includes(i) ? "bg-black" : "bg-white")} />
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 space-y-2">
+            <p className="text-xs text-muted-foreground">Распечатайте и разместите в парке — гость сканирует QR и попадает в кабинет.</p>
+            <button onClick={() => toast.info("Скачивание QR...")}
+              className="h-8 px-3 rounded-xl text-xs border border-border/40 text-muted-foreground hover:border-border/60 hover:text-foreground transition-colors">
+              Скачать PNG
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Guests list tab ──────────────────────────────────────────────────────────
+
+function GuestsTab({
+  allClients,
+  registeredGuests,
+  onOpen,
+}: {
+  allClients: typeof MOCK_CLIENTS_FB;
+  registeredGuests: typeof REGISTERED_GUESTS;
+  onOpen: (id: number) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const regIds = new Set(registeredGuests.map(g => g.id));
+
+  const filtered = allClients.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone.includes(search)
+  );
+
+  const stats = [
+    { label: "Кабинетов создано",    value: registeredGuests.length,               color: "text-violet-400" },
+    { label: "Активны в этом месяце", value: 2,                                   color: "text-emerald-400" },
+    { label: "Без кабинета",          value: allClients.length - registeredGuests.length, color: "text-muted-foreground" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-2.5">
+        {stats.map((s, i) => (
+          <div key={i} className="rounded-2xl p-3 bg-card/30 border border-border/40 text-center">
+            <p className={cn("text-xl font-black", s.color)}>{s.value}</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Поиск по имени или телефону..."
+          className="w-full h-9 pl-8 pr-3 rounded-xl bg-muted/15 border border-border/40 text-xs focus:outline-none focus:border-violet-500/50 placeholder:text-muted-foreground/50"
+        />
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {filtered.map(c => {
+          const hasPortal = regIds.has(c.id);
+          const reg = registeredGuests.find(g => g.id === c.id);
+          const tier = getClientTier(c.loyaltyPoints);
+          return (
+            <div key={c.id} className="rounded-2xl p-3.5 border border-border/40 bg-card/20 hover:border-border/60 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/30 to-indigo-500/20 flex items-center justify-center text-xs font-black shrink-0 border border-violet-500/20">
+                  {c.name.split(" ").map(w => w[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-bold truncate">{c.name}</p>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium shrink-0"
+                      style={{ color: tier.color, borderColor: tier.color + "50", backgroundColor: tier.color + "15" }}>
+                      {tier.icon} {tier.name}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{c.phone}</p>
+                  {hasPortal ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-medium">Кабинет активен</span>
+                      <span className="text-[9px] text-muted-foreground">последний вход: {reg!.lastActive}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted/20 text-muted-foreground border border-border/30 font-medium mt-1 inline-block">Нет кабинета</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => onOpen(c.id)}
+                  className={cn(
+                    "h-8 px-3 rounded-xl text-[10px] font-bold border shrink-0 transition-colors whitespace-nowrap",
+                    hasPortal
+                      ? "bg-violet-500/15 border-violet-500/40 text-violet-400 hover:bg-violet-500/25"
+                      : "bg-muted/10 border-border/40 text-muted-foreground hover:border-violet-500/30 hover:text-violet-400"
+                  )}
+                >
+                  {hasPortal ? "Открыть кабинет" : "Создать кабинет"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+type PageView = "dashboard" | "portal" | "register";
+type DashTab  = "guests" | "settings" | "embed";
+
+export default function GuestPortal() {
+  const [_rawClients] = useLocalStorage<typeof MOCK_CLIENTS_FB>("vrpark_clients", MOCK_CLIENTS_FB);
+  const allClients = _rawClients.length > 0 ? _rawClients : MOCK_CLIENTS_FB;
+
+  const [view, setView]               = useState<PageView>("dashboard");
+  const [dashTab, setDashTab]         = useState<DashTab>("guests");
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [settings, setSettings]       = useLocalStorage<PortalSettings>("vrpark_portal_settings", DEFAULT_SETTINGS);
+
+  const selectedClient = useMemo(
+    () => allClients.find(c => c.id === selectedClientId) ?? allClients[0],
+    [allClients, selectedClientId]
+  );
+
+  const openPortal = (clientId: number) => {
+    setSelectedClientId(clientId);
+    setView("portal");
+  };
+
+  const openPreview = () => {
+    setSelectedClientId(allClients[0]?.id ?? null);
+    setView("register");
+  };
+
+  // ── Registration preview → portal ────────────────────────────────────────
+  if (view === "register") {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="h-11 border-b border-border/50 bg-card/60 backdrop-blur-sm flex items-center px-4 gap-3 shrink-0">
+          <button onClick={() => setView("dashboard")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" /> Выйти из режима просмотра
+          </button>
+          <div className="flex-1" />
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 font-medium">Режим просмотра</span>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <RegistrationScreen onEnter={() => setView("portal")} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Portal view ───────────────────────────────────────────────────────────
+  if (view === "portal" && selectedClient) {
+    return <PortalView client={selectedClient} settings={settings} onBack={() => setView("dashboard")} />;
+  }
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  const dashTabs: { id: DashTab; icon: React.ReactNode; label: string }[] = [
+    { id: "guests",   icon: <Users className="w-3.5 h-3.5" />,    label: "Гости"     },
+    { id: "settings", icon: <Settings className="w-3.5 h-3.5" />, label: "Настройки" },
+    { id: "embed",    icon: <Code className="w-3.5 h-3.5" />,     label: "Встройка"  },
+  ];
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      <div className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm flex items-center px-4 gap-3 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/30 to-indigo-500/20 flex items-center justify-center border border-violet-500/20">
+            <Smartphone className="w-4 h-4 text-violet-400" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold leading-tight">Кабинет гостя</h1>
+            <p className="text-[10px] text-muted-foreground">Управление гостевым порталом</p>
+          </div>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={openPreview}
+            className="h-8 px-3 rounded-lg text-xs font-medium bg-violet-500/15 border border-violet-500/30 text-violet-400 hover:bg-violet-500/25 transition-colors flex items-center gap-1.5"
+          >
+            <Eye className="w-3.5 h-3.5" /> Просмотреть кабинет
+          </button>
+        </div>
+      </div>
+
+      {/* Dash tabs */}
+      <div className="border-b border-border/40 bg-card/20 flex px-4 shrink-0">
+        {dashTabs.map(t => (
+          <button key={t.id} onClick={() => setDashTab(t.id)}
+            className={cn(
+              "flex items-center gap-1.5 h-10 px-3 text-xs font-medium border-b-2 transition-colors",
+              dashTab === t.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}>
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          {dashTab === "guests" && (
+            <GuestsTab
+              allClients={allClients}
+              registeredGuests={REGISTERED_GUESTS}
+              onOpen={openPortal}
+            />
+          )}
+          {dashTab === "settings" && (
+            <SettingsTab settings={settings} onChange={setSettings} />
+          )}
+          {dashTab === "embed" && (
+            <EmbedTab onPreview={openPreview} />
+          )}
         </div>
       </div>
     </div>
