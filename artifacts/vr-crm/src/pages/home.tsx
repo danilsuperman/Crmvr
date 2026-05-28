@@ -33,6 +33,8 @@ import {
   Send,
   Users,
   Cake,
+  Star,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -443,6 +445,10 @@ export default function Home() {
     return (diff / 30) * ROW_H;
   }, [isToday, nowMinutes]);
 
+  // Loyalty data (read-only here, managed in loyalty page)
+  const [allClients] = useLocalStorage<Array<{ id: number; name: string; phone: string; visitCount: number; lastVisit: string; loyaltyPoints?: number; bonusBalance?: number }>>("vrpark_clients", []);
+  const [loyaltyTiers] = useLocalStorage<Array<{ id: string; name: string; minPoints: number; discount: number; cashbackPercent: number; color: string; icon: string; perks: string[]; active: boolean }>>("vrpark_loyalty_tiers", []);
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showClientDetails, setShowClientDetails] = useState(false);
@@ -454,6 +460,7 @@ export default function Home() {
   const [sendMsgOpen, setSendMsgOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BookingFormState>(EMPTY_FORM);
+  const [appliedBonus, setAppliedBonus] = useState(0);
 
   useEffect(() => {
     if (form.paidAmount && Number(form.paidAmount) > 0 && !form.isEvent) {
@@ -479,6 +486,7 @@ export default function Home() {
         : "14:00",
       zoneId: zoneId?.toString() || "",
     });
+    setAppliedBonus(0);
     setIsModalOpen(true);
   }, [dateStr]);
 
@@ -507,7 +515,13 @@ export default function Home() {
       reminderBefore2h: (b as any).reminders?.before2h ?? true,
       reminderBefore30m: (b as any).reminders?.before30m ?? false,
       paidAmount: (b as any).paidAmount?.toString() ?? "",
+      clientEmail: (b as any).clientEmail ?? "",
+      clientTelegram: (b as any).clientTelegram ?? "",
+      clientBirthday: (b as any).clientBirthday ?? "",
+      clientDetailNotes: (b as any).clientDetailNotes ?? "",
+      clientChildren: (b as any).clientChildren ?? [],
     });
+    setAppliedBonus(0);
     setIsModalOpen(true);
   }, []);
 
@@ -674,7 +688,21 @@ export default function Home() {
       form.startTime, form.endTime, form.zoneId, form.zoneSessionTypes,
       zones, sessionTypes, packages]);
 
-  const prepayAmount = bookingCalc ? Math.round(bookingCalc.total * prepayPercent / 100) : 0;
+  // Loyalty lookup
+  const foundClient = useMemo(() => {
+    const phone = form.clientPhone.replace(/\D/g, "");
+    if (phone.length < 7) return null;
+    return allClients.find(c => c.phone.replace(/\D/g, "").slice(-7) === phone.slice(-7)) ?? null;
+  }, [form.clientPhone, allClients]);
+
+  const clientTier = useMemo(() => {
+    if (!foundClient || loyaltyTiers.length === 0) return null;
+    const pts = foundClient.loyaltyPoints ?? 0;
+    return [...loyaltyTiers].filter(t => t.active).sort((a, b) => b.minPoints - a.minPoints).find(t => pts >= t.minPoints) ?? null;
+  }, [foundClient, loyaltyTiers]);
+
+  const finalTotal = bookingCalc ? Math.max(0, bookingCalc.total - appliedBonus) : 0;
+  const prepayAmount = finalTotal ? Math.round(finalTotal * prepayPercent / 100) : 0;
 
   const handleGenerateLink = () => {
     const clientSlug = form.clientName.trim().toLowerCase().replace(/[^а-яёa-z0-9]/gi, "-").replace(/-+/g, "-") || "client";
@@ -1378,6 +1406,56 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Loyalty panel — shown when phone matches a known client */}
+            {foundClient && !form.isEvent && (
+              <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-2.5 space-y-2">
+                <div className="flex items-center gap-2.5">
+                  {clientTier && <span className="text-lg leading-none">{clientTier.icon}</span>}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold">{foundClient.name}</span>
+                      {clientTier && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full border font-medium" style={{ color: clientTier.color, borderColor: clientTier.color + "50", backgroundColor: clientTier.color + "18" }}>
+                          {clientTier.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Star className="w-2.5 h-2.5" />{(foundClient.loyaltyPoints ?? 0).toLocaleString("ru")} очков
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+                        <Gift className="w-2.5 h-2.5" />{(foundClient.bonusBalance ?? 0).toLocaleString("ru")} ₽ бонусов
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {(foundClient.bonusBalance ?? 0) > 0 && bookingCalc && (
+                  appliedBonus > 0 ? (
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-xs text-emerald-400 flex items-center gap-1.5">
+                        <Check className="w-3 h-3" /> Применено бонусов: −{appliedBonus.toLocaleString("ru")} ₽
+                      </span>
+                      <button type="button" onClick={() => setAppliedBonus(0)} className="text-[10px] text-muted-foreground hover:text-red-400 underline transition-colors">отменить</button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const maxBonus = Math.min(foundClient.bonusBalance ?? 0, Math.floor(bookingCalc.total * 0.5));
+                        if (maxBonus <= 0) return;
+                        setAppliedBonus(maxBonus);
+                        toast.success(`Применено ${maxBonus.toLocaleString("ru")} ₽ бонусов`);
+                      }}
+                      className="w-full h-7 rounded-md text-xs bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium"
+                    >
+                      Применить бонусы (до {Math.min(foundClient.bonusBalance ?? 0, Math.floor(bookingCalc.total * 0.5)).toLocaleString("ru")} ₽)
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+
             {/* Detailed client info toggle */}
             <div className="rounded-lg border border-border/40 bg-muted/5 overflow-hidden">
               <button
@@ -1575,18 +1653,18 @@ export default function Home() {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Итого к оплате</span>
-                    <span className="font-medium">{bookingCalc.total.toLocaleString("ru")} ₽</span>
+                    <span className="font-medium">{finalTotal.toLocaleString("ru")} ₽</span>
                   </div>
                   <div className="w-full bg-muted/30 rounded-full h-1.5">
                     <div
                       className="bg-sky-400 h-1.5 rounded-full transition-all"
-                      style={{ width: `${Math.min(100, (Number(form.paidAmount) / bookingCalc.total) * 100)}%` }}
+                      style={{ width: `${Math.min(100, (Number(form.paidAmount) / finalTotal) * 100)}%` }}
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs pt-0.5">
                     <span className="text-muted-foreground">Остаток при визите</span>
-                    <span className={cn("font-bold", bookingCalc.total - Number(form.paidAmount) <= 0 ? "text-emerald-400" : "text-amber-400")}>
-                      {Math.max(0, bookingCalc.total - Number(form.paidAmount)).toLocaleString("ru")} ₽
+                    <span className={cn("font-bold", finalTotal - Number(form.paidAmount) <= 0 ? "text-emerald-400" : "text-amber-400")}>
+                      {Math.max(0, finalTotal - Number(form.paidAmount)).toLocaleString("ru")} ₽
                     </span>
                   </div>
                 </div>
@@ -1637,11 +1715,25 @@ export default function Home() {
                 </div>
 
                 {/* Total */}
-                <div className="flex items-center justify-between pt-2 border-t border-emerald-500/20">
-                  <span className="text-sm font-bold">Итого</span>
-                  <span className="text-2xl font-black text-emerald-400 tabular-nums">
-                    {bookingCalc.total.toLocaleString("ru")} ₽
-                  </span>
+                <div className="pt-2 border-t border-emerald-500/20 space-y-1.5">
+                  {appliedBonus > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Стоимость сеанса</span>
+                        <span className="text-muted-foreground">{bookingCalc.total.toLocaleString("ru")} ₽</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-emerald-400">
+                        <span className="flex items-center gap-1"><Gift className="w-3 h-3" /> Бонусы клиента</span>
+                        <span className="font-bold">−{appliedBonus.toLocaleString("ru")} ₽</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold">Итого</span>
+                    <span className="text-2xl font-black text-emerald-400 tabular-nums">
+                      {finalTotal.toLocaleString("ru")} ₽
+                    </span>
+                  </div>
                 </div>
 
                 {/* Prepay % selector */}
@@ -1690,7 +1782,7 @@ export default function Home() {
                   <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
                     <div>
                       <p className="text-xs font-semibold">К оплате сейчас ({prepayPercent}%)</p>
-                      <p className="text-[10px] text-muted-foreground">Остаток {(bookingCalc.total - prepayAmount).toLocaleString("ru")} ₽ — на месте</p>
+                      <p className="text-[10px] text-muted-foreground">Остаток {(finalTotal - prepayAmount).toLocaleString("ru")} ₽ — на месте</p>
                     </div>
                     <span className="text-lg font-black text-emerald-400 tabular-nums">
                       {prepayAmount.toLocaleString("ru")} ₽

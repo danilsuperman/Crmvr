@@ -17,14 +17,14 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const MOCK_CLIENTS_DATA = [
-  { id: 1, name: "Андрей Смирнов", phone: "+7 916 123-45-67", visitCount: 12, lastVisit: "2026-05-24T10:00:00Z" },
-  { id: 2, name: "Мария Козлова", phone: "+7 903 987-65-43", visitCount: 8, lastVisit: "2026-05-23T15:30:00Z" },
-  { id: 3, name: "Дмитрий Новиков", phone: "+7 926 555-12-34", visitCount: 3, lastVisit: "2026-05-20T12:00:00Z" },
-  { id: 4, name: "Елена Петрова", phone: "+7 985 432-10-98", visitCount: 25, lastVisit: "2026-05-25T11:00:00Z" },
-  { id: 5, name: "Иван Сидоров", phone: "+7 965 876-54-32", visitCount: 1, lastVisit: "2026-05-18T16:00:00Z" },
-  { id: 6, name: "Наталья Волкова", phone: "+7 911 234-56-78", visitCount: 7, lastVisit: "2026-05-22T14:00:00Z" },
-  { id: 7, name: "Алексей Морозов", phone: "+7 977 345-67-89", visitCount: 15, lastVisit: "2026-05-21T10:30:00Z" },
-  { id: 8, name: "Светлана Орлова", phone: "+7 999 456-78-90", visitCount: 4, lastVisit: "2026-05-19T13:00:00Z" },
+  { id: 1, name: "Андрей Смирнов",  phone: "+7 916 123-45-67", visitCount: 12, lastVisit: "2026-05-24T10:00:00Z", loyaltyPoints: 3200, bonusBalance: 450 },
+  { id: 2, name: "Мария Козлова",   phone: "+7 903 987-65-43", visitCount: 8,  lastVisit: "2026-05-23T15:30:00Z", loyaltyPoints: 1800, bonusBalance: 220 },
+  { id: 3, name: "Дмитрий Новиков", phone: "+7 926 555-12-34", visitCount: 3,  lastVisit: "2026-05-20T12:00:00Z", loyaltyPoints: 450,  bonusBalance: 50  },
+  { id: 4, name: "Елена Петрова",   phone: "+7 985 432-10-98", visitCount: 25, lastVisit: "2026-05-25T11:00:00Z", loyaltyPoints: 7500, bonusBalance: 1200 },
+  { id: 5, name: "Иван Сидоров",    phone: "+7 965 876-54-32", visitCount: 1,  lastVisit: "2026-05-18T16:00:00Z", loyaltyPoints: 0,    bonusBalance: 0   },
+  { id: 6, name: "Наталья Волкова", phone: "+7 911 234-56-78", visitCount: 7,  lastVisit: "2026-05-22T14:00:00Z", loyaltyPoints: 1500, bonusBalance: 180 },
+  { id: 7, name: "Алексей Морозов", phone: "+7 977 345-67-89", visitCount: 15, lastVisit: "2026-05-21T10:30:00Z", loyaltyPoints: 4200, bonusBalance: 680 },
+  { id: 8, name: "Светлана Орлова", phone: "+7 999 456-78-90", visitCount: 4,  lastVisit: "2026-05-19T13:00:00Z", loyaltyPoints: 850,  bonusBalance: 90  },
 ];
 
 type Campaign = {
