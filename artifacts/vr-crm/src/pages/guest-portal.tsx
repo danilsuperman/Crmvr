@@ -195,64 +195,283 @@ function HomeTab({ client, tier }: { client: typeof MOCK_CLIENTS_FB[0]; tier: Re
   );
 }
 
+type Booking = {
+  id: number;
+  zone: string;
+  date: string;
+  timeFrom: string;
+  timeTo: string;
+  guests: number;
+  amount: number;
+  status: "confirmed" | "pending" | "done";
+  comment: string;
+};
+
+const ZONES_LIST = ["Arena A", "Arena B", "VR Solo", "Racing Zone", "VIP комната", "PS5"];
+const TIMES_LIST = ["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
+
+const INITIAL_UPCOMING: Booking[] = [
+  { id: 1, zone: "Arena A",     date: "2026-05-29", timeFrom: "19:00", timeTo: "20:00", guests: 4, amount: 4800, status: "confirmed", comment: "" },
+  { id: 2, zone: "Racing Zone", date: "2026-06-01", timeFrom: "14:00", timeTo: "15:00", guests: 2, amount: 2400, status: "pending",   comment: "" },
+];
+
+const INITIAL_PAST: Booking[] = [
+  { id: 3, zone: "Arena A",     date: "2026-05-14", timeFrom: "10:00", timeTo: "11:00", guests: 4, amount: 4500, status: "done", comment: "" },
+  { id: 4, zone: "VIP комната", date: "2026-04-23", timeFrom: "12:00", timeTo: "15:00", guests: 8, amount: 35000, status: "done", comment: "" },
+  { id: 5, zone: "Arena B",     date: "2026-03-10", timeFrom: "17:00", timeTo: "18:00", guests: 4, amount: 4200, status: "done", comment: "" },
+];
+
+function fmtDate(iso: string) {
+  try {
+    return format(new Date(iso), "d MMMM", { locale: ru });
+  } catch { return iso; }
+}
+
+function StatusBadge({ status }: { status: Booking["status"] }) {
+  return (
+    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full border mt-1 inline-block",
+      status === "confirmed" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+      status === "pending"   ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                              "bg-muted/20 text-muted-foreground border-border/40"
+    )}>
+      {status === "confirmed" ? "Подтверждена" : status === "pending" ? "Ожидает" : "Завершена"}
+    </span>
+  );
+}
+
 function BookingsTab() {
-  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
-  const upcoming = [
-    { zone: "Arena A", date: "Завтра", time: "19:00–20:00", guests: 4, amount: 4800, status: "confirmed" },
-    { zone: "Racing Zone", date: "1 июня", time: "14:00–15:00", guests: 2, amount: 2400, status: "pending" },
-  ];
-  const past = [
-    { zone: "Arena A", date: "14 мая", time: "10:00–11:00", guests: 4, amount: 4500, status: "done" },
-    { zone: "VIP комната", date: "23 апреля", time: "12:00–15:00", guests: 8, amount: 35000, status: "done" },
-    { zone: "Arena B", date: "10 марта", time: "17:00–18:00", guests: 4, amount: 4200, status: "done" },
-  ];
+  const [listTab, setListTab] = useState<"upcoming" | "past">("upcoming");
+  const [upcomingList, setUpcomingList] = useState<Booking[]>(INITIAL_UPCOMING);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<Partial<Booking>>({});
+  const [cancelId, setCancelId] = useState<number | null>(null);
+
+  const startEdit = (b: Booking) => {
+    setEditingId(b.id);
+    setDraft({ zone: b.zone, date: b.date, timeFrom: b.timeFrom, timeTo: b.timeTo, guests: b.guests, comment: b.comment });
+  };
+
+  const saveEdit = (id: number) => {
+    setUpcomingList(prev => prev.map(b => b.id === id ? { ...b, ...draft } as Booking : b));
+    setEditingId(null);
+    setDraft({});
+    toast.success("Бронь обновлена");
+  };
+
+  const cancelBooking = (id: number) => {
+    setUpcomingList(prev => prev.filter(b => b.id !== id));
+    setCancelId(null);
+    toast.success("Бронь отменена");
+  };
+
+  const list = listTab === "upcoming" ? upcomingList : INITIAL_PAST;
 
   return (
     <div className="space-y-3">
       <button className="w-full h-11 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-bold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
         <Plus className="w-4 h-4" /> Новая бронь
       </button>
+
       <div className="flex rounded-xl overflow-hidden border border-border/40 bg-muted/10">
-        {(["upcoming","past"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
+        {(["upcoming", "past"] as const).map(t => (
+          <button key={t} onClick={() => setListTab(t)}
             className={cn("flex-1 h-8 text-xs font-medium transition-colors",
-              tab === t ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              listTab === t ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
             )}>
-            {t === "upcoming" ? "Предстоящие" : "История"}
+            {t === "upcoming" ? `Предстоящие (${upcomingList.length})` : "История"}
           </button>
         ))}
       </div>
+
       <div className="space-y-2.5">
-        {(tab === "upcoming" ? upcoming : past).map((b, i) => (
-          <div key={i} className="rounded-2xl p-3.5 border border-border/40 bg-card/30 hover:border-border/60 transition-colors">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-bold">{b.zone}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{b.date}</span>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" />{b.time}</span>
+        {list.length === 0 && (
+          <div className="text-center py-10 text-muted-foreground text-xs">Нет предстоящих броней</div>
+        )}
+        {list.map(b => {
+          const isEditing = editingId === b.id;
+          const isConfirming = cancelId === b.id;
+
+          return (
+            <div key={b.id}
+              className={cn(
+                "rounded-2xl border transition-all overflow-hidden",
+                isEditing
+                  ? "border-violet-500/50 bg-violet-500/5"
+                  : "border-border/40 bg-card/30 hover:border-border/60"
+              )}
+            >
+              {/* ── View mode ── */}
+              <div className="p-3.5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-bold">{b.zone}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />{fmtDate(b.date)}
+                      </span>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" />{b.timeFrom}–{b.timeTo}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Users className="w-2.5 h-2.5" />{b.guests} {b.guests === 1 ? "игрок" : b.guests < 5 ? "игрока" : "игроков"}
+                      </span>
+                      {b.comment && (
+                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[120px]">«{b.comment}»</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="text-sm font-bold text-emerald-400">{b.amount.toLocaleString("ru")} ₽</p>
+                    <StatusBadge status={b.status} />
+                  </div>
                 </div>
-                <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1"><Users className="w-2.5 h-2.5" />{b.guests} игрока</span>
+
+                {/* Action buttons (upcoming only) */}
+                {listTab === "upcoming" && !isEditing && !isConfirming && (
+                  <div className="flex gap-2 mt-2.5">
+                    <button
+                      onClick={() => startEdit(b)}
+                      className="flex-1 h-7 rounded-xl text-[10px] font-medium bg-violet-500/12 border border-violet-500/30 text-violet-400 hover:bg-violet-500/22 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Check className="w-3 h-3" /> Редактировать
+                    </button>
+                    <button
+                      onClick={() => { setCancelId(b.id); setEditingId(null); }}
+                      className="h-7 px-3 rounded-xl text-[10px] font-medium bg-muted/15 border border-border/40 text-muted-foreground hover:text-red-400 hover:border-red-500/30 transition-colors"
+                    >
+                      Отменить
+                    </button>
+                    <button className="h-7 px-3 rounded-xl text-[10px] font-medium bg-emerald-500/12 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/22 transition-colors">
+                      Оплатить
+                    </button>
+                  </div>
+                )}
+
+                {/* Cancel confirm */}
+                {isConfirming && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-red-500/8 border border-red-500/25 space-y-2">
+                    <p className="text-xs font-medium text-red-400">Отменить бронь «{b.zone}» {fmtDate(b.date)}?</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setCancelId(null)}
+                        className="flex-1 h-7 rounded-xl text-[10px] border border-border/40 text-muted-foreground hover:border-border/60 transition-colors">
+                        Нет, оставить
+                      </button>
+                      <button onClick={() => cancelBooking(b.id)}
+                        className="flex-1 h-7 rounded-xl text-[10px] font-bold bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors">
+                        Да, отменить
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-emerald-400">{b.amount.toLocaleString("ru")} ₽</p>
-                <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full border mt-1 inline-block",
-                  b.status === "confirmed" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
-                  b.status === "pending"   ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
-                                            "bg-muted/20 text-muted-foreground border-border/40"
-                )}>
-                  {b.status === "confirmed" ? "Подтверждена" : b.status === "pending" ? "Ожидает" : "Завершена"}
-                </span>
-              </div>
+
+              {/* ── Edit panel ── */}
+              {isEditing && (
+                <div className="border-t border-violet-500/30 p-3.5 space-y-3 bg-violet-500/5">
+                  <p className="text-xs font-bold text-violet-400 flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" /> Редактирование брони
+                  </p>
+
+                  {/* Zone */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Зона</label>
+                    <select
+                      value={draft.zone}
+                      onChange={e => setDraft(d => ({ ...d, zone: e.target.value }))}
+                      className="w-full h-8 px-2.5 rounded-xl bg-background/70 border border-border/50 text-xs focus:outline-none focus:border-violet-500/60 cursor-pointer"
+                    >
+                      {ZONES_LIST.map(z => <option key={z} value={z}>{z}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Date */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Дата</label>
+                    <input
+                      type="date"
+                      value={draft.date}
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={e => setDraft(d => ({ ...d, date: e.target.value }))}
+                      className="w-full h-8 px-2.5 rounded-xl bg-background/70 border border-border/50 text-xs focus:outline-none focus:border-violet-500/60"
+                    />
+                  </div>
+
+                  {/* Time */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Начало</label>
+                      <select
+                        value={draft.timeFrom}
+                        onChange={e => setDraft(d => ({ ...d, timeFrom: e.target.value }))}
+                        className="w-full h-8 px-2.5 rounded-xl bg-background/70 border border-border/50 text-xs focus:outline-none focus:border-violet-500/60 cursor-pointer"
+                      >
+                        {TIMES_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Конец</label>
+                      <select
+                        value={draft.timeTo}
+                        onChange={e => setDraft(d => ({ ...d, timeTo: e.target.value }))}
+                        className="w-full h-8 px-2.5 rounded-xl bg-background/70 border border-border/50 text-xs focus:outline-none focus:border-violet-500/60 cursor-pointer"
+                      >
+                        {TIMES_LIST.filter(t => t > (draft.timeFrom ?? "00:00")).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Guests */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Количество игроков</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setDraft(d => ({ ...d, guests: Math.max(1, (d.guests ?? 1) - 1) }))}
+                        className="w-8 h-8 rounded-xl bg-muted/20 border border-border/40 text-sm font-bold hover:bg-muted/30 transition-colors flex items-center justify-center"
+                      >−</button>
+                      <span className="text-sm font-bold w-8 text-center">{draft.guests}</span>
+                      <button
+                        onClick={() => setDraft(d => ({ ...d, guests: Math.min(8, (d.guests ?? 1) + 1) }))}
+                        className="w-8 h-8 rounded-xl bg-muted/20 border border-border/40 text-sm font-bold hover:bg-muted/30 transition-colors flex items-center justify-center"
+                      >+</button>
+                      <span className="text-[10px] text-muted-foreground">макс. 8</span>
+                    </div>
+                  </div>
+
+                  {/* Comment */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Комментарий</label>
+                    <textarea
+                      value={draft.comment}
+                      onChange={e => setDraft(d => ({ ...d, comment: e.target.value }))}
+                      placeholder="Особые пожелания, повод..."
+                      rows={2}
+                      className="w-full px-2.5 py-2 rounded-xl bg-background/70 border border-border/50 text-xs focus:outline-none focus:border-violet-500/60 resize-none placeholder:text-muted-foreground/40"
+                    />
+                  </div>
+
+                  {/* Save / Cancel */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => { setEditingId(null); setDraft({}); }}
+                      className="flex-1 h-9 rounded-xl text-xs border border-border/40 text-muted-foreground hover:border-border/60 transition-colors"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      onClick={() => saveEdit(b.id)}
+                      disabled={!draft.zone || !draft.date || !draft.timeFrom || !draft.timeTo}
+                      className="flex-1 h-9 rounded-xl text-xs font-bold bg-violet-500/25 border border-violet-500/50 text-violet-300 hover:bg-violet-500/35 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Сохранить изменения
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            {tab === "upcoming" && (
-              <div className="flex gap-2 mt-2.5">
-                <button className="flex-1 h-7 rounded-xl text-[10px] font-medium bg-muted/15 border border-border/40 text-muted-foreground hover:text-foreground transition-colors">Перенести</button>
-                <button className="h-7 px-3 rounded-xl text-[10px] font-medium bg-violet-500/15 border border-violet-500/30 text-violet-400 hover:bg-violet-500/25 transition-colors">Оплатить</button>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
