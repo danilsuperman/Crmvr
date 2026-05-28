@@ -1032,39 +1032,55 @@ export default function Home() {
 
                     const result: React.ReactNode[] = [];
 
-                    // Card for each participating zone
-                    zoneIndices.forEach((zIdx, i) => {
-                      const left = TIME_COL_W + zIdx * ZONE_COL_W + 2;
+                    // Group consecutive zone indices into runs for merged cards
+                    const runs: number[][] = [];
+                    let currentRun: number[] = [zoneIndices[0]];
+                    for (let i = 1; i < zoneIndices.length; i++) {
+                      if (zoneIndices[i] === zoneIndices[i - 1] + 1) {
+                        currentRun.push(zoneIndices[i]);
+                      } else {
+                        runs.push(currentRun);
+                        currentRun = [zoneIndices[i]];
+                      }
+                    }
+                    runs.push(currentRun);
+
+                    // One merged card per consecutive run
+                    runs.forEach((run, runIdx) => {
+                      const runLeft = TIME_COL_W + run[0] * ZONE_COL_W + 2;
+                      const runWidth = run.length * ZONE_COL_W - 4;
+                      const runZoneNames = run
+                        .map((zi) => zones[zi]?.name)
+                        .filter(Boolean)
+                        .join(" · ");
                       result.push(
                         <div
-                          key={`event-${pkgId}-z${zIdx}`}
+                          key={`event-${pkgId}-run${runIdx}`}
                           className="absolute z-20 cursor-pointer"
-                          style={{ top: top + 2, left, width: ZONE_COL_W - 4, height: height - 4 }}
+                          style={{ top: top + 2, left: runLeft, width: runWidth, height: height - 4 }}
                           onClick={(e) => { e.stopPropagation(); setEventDashPkgId(pkgId); }}
                         >
-                          <div className="w-full h-full rounded-xl border-2 border-blue-500/60 bg-blue-500/15 hover:bg-blue-500/25 hover:border-blue-400/80 transition-all duration-200 flex flex-col p-2 overflow-hidden shadow-lg relative">
+                          <div className="w-full h-full rounded-xl border-2 border-blue-500/60 bg-blue-500/15 hover:bg-blue-500/25 hover:border-blue-400/80 transition-all duration-200 flex flex-col p-3 overflow-hidden shadow-lg relative">
                             <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-xl" />
-                            {i === 0 ? (
+                            {runIdx === 0 ? (
                               <>
-                                <div className="flex items-center gap-1.5 mb-1 mt-1">
-                                  <span className="text-sm">🎉</span>
+                                <div className="flex items-center gap-2 mb-1 mt-0.5">
+                                  <span className="text-sm shrink-0">🎉</span>
                                   <div className="flex-1 min-w-0">
                                     <div className="font-bold text-xs text-blue-200 truncate">{rep.clientName || "Мероприятие"}</div>
                                     <div className="text-[9px] text-blue-300/70 font-semibold truncate">{pkg.name}</div>
                                   </div>
+                                  <span className="shrink-0 text-[9px] bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/40">{rep.guestsCount} гост.</span>
                                 </div>
-                                <div className="text-[9px] text-blue-300/50 truncate">
-                                  {pkg.zoneIds.map((zid) => zones.find((z) => z.id === zid)?.name).filter(Boolean).join(" · ")}
-                                </div>
-                                <div className="flex items-center justify-between mt-auto">
-                                  <span className="text-[9px] text-blue-300/80 font-mono">{format(start, "HH:mm")} – {format(end, "HH:mm")}</span>
-                                  <span className="text-[9px] bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/40">{rep.guestsCount} гост.</span>
+                                <div className="text-[9px] text-blue-300/50 truncate">{runZoneNames}</div>
+                                <div className="text-[9px] text-blue-300/80 font-mono mt-auto">
+                                  {format(start, "HH:mm")} – {format(end, "HH:mm")}
                                 </div>
                               </>
                             ) : (
                               <>
-                                <div className="font-bold text-xs text-blue-200 truncate mt-1">🎉 {rep.clientName || "Мероприятие"}</div>
-                                <div className="text-[9px] text-blue-300/70 truncate">{pkg.name}</div>
+                                <div className="font-bold text-xs text-blue-200 truncate mt-0.5">🎉 {rep.clientName || "Мероприятие"}</div>
+                                <div className="text-[9px] text-blue-300/60 truncate">{runZoneNames}</div>
                                 <div className="text-[9px] text-blue-300/80 font-mono mt-auto">{format(start, "HH:mm")} – {format(end, "HH:mm")}</div>
                               </>
                             )}
@@ -1073,7 +1089,7 @@ export default function Home() {
                       );
                     });
 
-                    // "Free" subtle tint for non-participating zones between leftIdx and rightIdx
+                    // "Free" indicator for non-event zones between leftIdx and rightIdx
                     for (let zIdx = leftIdx; zIdx <= rightIdx; zIdx++) {
                       const zone = zones[zIdx];
                       if (!zone || eventZoneSet.has(zone.id)) continue;
