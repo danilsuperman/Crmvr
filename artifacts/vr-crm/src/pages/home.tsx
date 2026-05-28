@@ -450,9 +450,35 @@ export default function Home() {
   }, [isToday, nowMinutes]);
 
   // Loyalty data (read-only here, managed in loyalty page)
-  const [allClients] = useLocalStorage<Array<{ id: number; name: string; phone: string; visitCount: number; lastVisit: string; loyaltyPoints?: number; bonusBalance?: number }>>("vrpark_clients", []);
-  const [loyaltyTiers] = useLocalStorage<Array<{ id: string; name: string; minPoints: number; discount: number; cashbackPercent: number; color: string; icon: string; perks: string[]; active: boolean }>>("vrpark_loyalty_tiers", []);
-  const [promos] = useLocalStorage<Array<{ id: string; code: string; discount: number; type: "percent" | "fixed"; uses: number; maxUses: number; active: boolean }>>("vrpark_promos", []);
+  // Defaults mirror the same mock data used in clients.tsx / loyalty.tsx so the panel works
+  // immediately without needing to visit those pages first.
+  const DEFAULT_CLIENTS_FB = [
+    { id: 1, name: "Андрей Смирнов",  phone: "+7 916 123-45-67", visitCount: 12, lastVisit: "2026-05-24T10:00:00Z", loyaltyPoints: 3200, bonusBalance: 450 },
+    { id: 2, name: "Мария Козлова",   phone: "+7 903 987-65-43", visitCount: 8,  lastVisit: "2026-05-23T15:30:00Z", loyaltyPoints: 1800, bonusBalance: 220 },
+    { id: 3, name: "Дмитрий Новиков", phone: "+7 926 555-12-34", visitCount: 3,  lastVisit: "2026-05-20T12:00:00Z", loyaltyPoints: 450,  bonusBalance: 50  },
+    { id: 4, name: "Елена Петрова",   phone: "+7 985 432-10-98", visitCount: 25, lastVisit: "2026-05-25T11:00:00Z", loyaltyPoints: 7500, bonusBalance: 1200 },
+    { id: 5, name: "Иван Сидоров",    phone: "+7 965 876-54-32", visitCount: 1,  lastVisit: "2026-05-18T16:00:00Z", loyaltyPoints: 0,    bonusBalance: 0   },
+    { id: 6, name: "Наталья Волкова", phone: "+7 911 234-56-78", visitCount: 7,  lastVisit: "2026-05-22T14:00:00Z", loyaltyPoints: 1500, bonusBalance: 180 },
+    { id: 7, name: "Алексей Морозов", phone: "+7 977 345-67-89", visitCount: 15, lastVisit: "2026-05-21T10:30:00Z", loyaltyPoints: 4200, bonusBalance: 680 },
+    { id: 8, name: "Светлана Орлова", phone: "+7 999 456-78-90", visitCount: 4,  lastVisit: "2026-05-19T13:00:00Z", loyaltyPoints: 850,  bonusBalance: 90  },
+  ];
+  const DEFAULT_TIERS_FB = [
+    { id: "t1", name: "Стандарт", minPoints: 0,    discount: 0,  cashbackPercent: 2, color: "#6b7280", icon: "⭐", perks: [] as string[], active: true },
+    { id: "t2", name: "Серебро",  minPoints: 1000, discount: 5,  cashbackPercent: 3, color: "#94a3b8", icon: "🥈", perks: [] as string[], active: true },
+    { id: "t3", name: "Золото",   minPoints: 3000, discount: 10, cashbackPercent: 5, color: "#f59e0b", icon: "🥇", perks: [] as string[], active: true },
+    { id: "t4", name: "VIP",      minPoints: 7000, discount: 15, cashbackPercent: 7, color: "#6366f1", icon: "👑", perks: [] as string[], active: true },
+  ];
+  const DEFAULT_PROMOS_FB = [
+    { id: "p1", code: "WELCOME20", discount: 20,  type: "percent" as const, uses: 14, maxUses: 100, active: true },
+    { id: "p2", code: "BDAY500",   discount: 500, type: "fixed"   as const, uses: 7,  maxUses: 50,  active: true },
+    { id: "p3", code: "SUMMER15",  discount: 15,  type: "percent" as const, uses: 31, maxUses: 200, active: false },
+  ];
+  const [_rawClients] = useLocalStorage<Array<{ id: number; name: string; phone: string; visitCount: number; lastVisit: string; loyaltyPoints?: number; bonusBalance?: number }>>("vrpark_clients", DEFAULT_CLIENTS_FB);
+  const allClients = _rawClients.length > 0 ? _rawClients : DEFAULT_CLIENTS_FB;
+  const [_rawTiers] = useLocalStorage<Array<{ id: string; name: string; minPoints: number; discount: number; cashbackPercent: number; color: string; icon: string; perks: string[]; active: boolean }>>("vrpark_loyalty_tiers", DEFAULT_TIERS_FB);
+  const loyaltyTiers = _rawTiers.length > 0 ? _rawTiers : DEFAULT_TIERS_FB;
+  const [_rawPromos] = useLocalStorage<Array<{ id: string; code: string; discount: number; type: "percent" | "fixed"; uses: number; maxUses: number; active: boolean }>>("vrpark_promos", DEFAULT_PROMOS_FB);
+  const promos = _rawPromos.length > 0 ? _rawPromos : DEFAULT_PROMOS_FB;
   const [cashbackEnabled] = useLocalStorage("vrpark_cashback_enabled", true);
 
   // Modal state
