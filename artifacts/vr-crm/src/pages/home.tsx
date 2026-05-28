@@ -1936,6 +1936,20 @@ export default function Home() {
             setEventDashPkgId(null);
             openEditBooking(b as Booking);
           }}
+          onDelete={() => {
+            const pkgId = eventDashPkgId!;
+            setAllLocalBookings((prev) => {
+              const updated: Record<string, Booking[]> = {};
+              for (const [date, list] of Object.entries(prev)) {
+                updated[date] = (list as Booking[]).filter(
+                  (b) => !(b.packageId === pkgId && b.status === "event")
+                );
+              }
+              return updated;
+            });
+            setEventDashPkgId(null);
+            toast.success("Мероприятие удалено");
+          }}
         />
       )}
     </div>

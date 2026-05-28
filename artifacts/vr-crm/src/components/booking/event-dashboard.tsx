@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { X, Users, Clock, MapPin, FileText, Package } from "lucide-react";
+import { X, Users, Clock, MapPin, FileText, Package, Trash2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BookingRow {
@@ -40,6 +41,7 @@ interface EventDashboardProps {
   zones: Zone[];
   onClose: () => void;
   onEditBooking: (booking: BookingRow) => void;
+  onDelete?: () => void;
 }
 
 function statusLabel(s: string) {
@@ -62,7 +64,8 @@ function statusColor(s: string) {
   }
 }
 
-export function EventDashboard({ bookings, pkg, zones, onClose, onEditBooking }: EventDashboardProps) {
+export function EventDashboard({ bookings, pkg, zones, onClose, onEditBooking, onDelete }: EventDashboardProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const rep = bookings[0];
   if (!rep) return null;
 
@@ -105,13 +108,48 @@ export function EventDashboard({ bookings, pkg, zones, onClose, onEditBooking }:
               {pkg.name} · {format(start, "d MMMM, HH:mm", { locale: ru })} – {format(end, "HH:mm")}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors"
+                title="Удалить мероприятие"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+
+        {/* Delete confirmation bar */}
+        {confirmDelete && (
+          <div className="shrink-0 px-5 py-3 bg-red-500/10 border-b border-red-500/30 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-sm text-red-300">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>Удалить мероприятие и все связанные брони? Это действие необратимо.</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="h-7 px-3 rounded-lg text-xs font-semibold border border-border/50 text-muted-foreground hover:bg-muted/40 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => { onDelete?.(); setConfirmDelete(false); }}
+                className="h-7 px-3 rounded-lg text-xs font-semibold bg-red-500/20 border border-red-500/50 text-red-300 hover:bg-red-500/30 transition-colors"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex flex-1 overflow-hidden divide-x divide-border/40">
