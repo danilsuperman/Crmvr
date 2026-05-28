@@ -496,6 +496,11 @@ export default function Home() {
   const [appliedTierDiscount, setAppliedTierDiscount] = useState(false);
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ id: string; code: string; discount: number; type: "percent" | "fixed" } | null>(null);
+  const [promoBlockOpen, setPromoBlockOpen] = useState(false);
+  const [discountBlockOpen, setDiscountBlockOpen] = useState(false);
+  const [manualDiscountInput, setManualDiscountInput] = useState("");
+  const [manualDiscountType, setManualDiscountType] = useState<"percent" | "fixed">("percent");
+  const [appliedManualDiscount, setAppliedManualDiscount] = useState<{ value: number; type: "percent" | "fixed" } | null>(null);
 
   useEffect(() => {
     if (form.paidAmount && Number(form.paidAmount) > 0 && !form.isEvent) {
@@ -525,6 +530,11 @@ export default function Home() {
     setAppliedTierDiscount(false);
     setPromoInput("");
     setAppliedPromo(null);
+    setPromoBlockOpen(false);
+    setDiscountBlockOpen(false);
+    setManualDiscountInput("");
+    setManualDiscountType("percent");
+    setAppliedManualDiscount(null);
     setIsModalOpen(true);
   }, [dateStr]);
 
@@ -563,6 +573,11 @@ export default function Home() {
     setAppliedTierDiscount(false);
     setPromoInput("");
     setAppliedPromo(null);
+    setPromoBlockOpen(false);
+    setDiscountBlockOpen(false);
+    setManualDiscountInput("");
+    setManualDiscountType("percent");
+    setAppliedManualDiscount(null);
     setIsModalOpen(true);
   }, []);
 
@@ -759,8 +774,15 @@ export default function Home() {
       : Math.min(appliedPromo.discount, bookingCalc.total);
   }, [appliedPromo, bookingCalc]);
 
+  const manualDiscountAmount = useMemo(() => {
+    if (!appliedManualDiscount || !bookingCalc) return 0;
+    if (appliedManualDiscount.type === "percent")
+      return Math.min(Math.round(bookingCalc.total * appliedManualDiscount.value / 100), bookingCalc.total);
+    return Math.min(appliedManualDiscount.value, bookingCalc.total);
+  }, [appliedManualDiscount, bookingCalc]);
+
   const finalTotal = bookingCalc
-    ? Math.max(0, bookingCalc.total - appliedBonus - tierDiscountAmount - promoDiscountAmount)
+    ? Math.max(0, bookingCalc.total - appliedBonus - tierDiscountAmount - promoDiscountAmount - manualDiscountAmount)
     : 0;
 
   const cashbackPreview = useMemo(() => {
@@ -1899,9 +1921,150 @@ export default function Home() {
                   ))}
                 </div>
 
+                {/* ── Promo + Discount buttons ───────────────────────── */}
+                <div className="space-y-2">
+                  {/* Button row */}
+                  <div className="flex gap-2">
+                    {/* Promo button */}
+                    {!appliedPromo ? (
+                      <button
+                        type="button"
+                        onClick={() => { setPromoBlockOpen(v => !v); setDiscountBlockOpen(false); }}
+                        className={cn(
+                          "flex-1 h-7 rounded-lg text-xs font-medium border transition-all flex items-center justify-center gap-1.5",
+                          promoBlockOpen
+                            ? "bg-sky-500/15 border-sky-500/50 text-sky-400"
+                            : "bg-muted/10 border-border/40 text-muted-foreground hover:border-sky-500/40 hover:text-sky-400"
+                        )}
+                      >
+                        <Ticket className="w-3 h-3" /> Промокод
+                      </button>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-between px-2.5 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-400">
+                        <span className="flex items-center gap-1"><Ticket className="w-3 h-3" /><span className="font-mono font-bold">{appliedPromo.code}</span></span>
+                        <button type="button" onClick={() => { setAppliedPromo(null); setPromoInput(""); }} className="text-[10px] text-muted-foreground hover:text-red-400 transition-colors">✕</button>
+                      </div>
+                    )}
+
+                    {/* Discount button */}
+                    {!appliedManualDiscount ? (
+                      <button
+                        type="button"
+                        onClick={() => { setDiscountBlockOpen(v => !v); setPromoBlockOpen(false); }}
+                        className={cn(
+                          "flex-1 h-7 rounded-lg text-xs font-medium border transition-all flex items-center justify-center gap-1.5",
+                          discountBlockOpen
+                            ? "bg-violet-500/15 border-violet-500/50 text-violet-400"
+                            : "bg-muted/10 border-border/40 text-muted-foreground hover:border-violet-500/40 hover:text-violet-400"
+                        )}
+                      >
+                        <Percent className="w-3 h-3" /> Скидка
+                      </button>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-between px-2.5 h-7 rounded-lg bg-violet-500/10 border border-violet-500/30 text-xs text-violet-400">
+                        <span className="flex items-center gap-1">
+                          <Percent className="w-3 h-3" />
+                          {appliedManualDiscount.type === "percent"
+                            ? `${appliedManualDiscount.value}%`
+                            : `${appliedManualDiscount.value.toLocaleString("ru")} ₽`}
+                        </span>
+                        <button type="button" onClick={() => { setAppliedManualDiscount(null); setManualDiscountInput(""); }} className="text-[10px] text-muted-foreground hover:text-red-400 transition-colors">✕</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Promo input panel */}
+                  {promoBlockOpen && !appliedPromo && (
+                    <div className="flex gap-1.5 items-center p-2 rounded-lg bg-sky-500/5 border border-sky-500/20">
+                      <Ticket className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Введите промокод"
+                        value={promoInput}
+                        onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const found = promos.find(p => p.active && p.code === promoInput.trim() && p.uses < p.maxUses);
+                            if (found) { setAppliedPromo(found); setPromoBlockOpen(false); toast.success(`Промокод ${found.code} применён`); }
+                            else toast.error("Промокод не найден или недействителен");
+                          }
+                        }}
+                        className="flex-1 h-7 bg-transparent text-xs font-mono focus:outline-none placeholder:text-muted-foreground/40 text-sky-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const found = promos.find(p => p.active && p.code === promoInput.trim() && p.uses < p.maxUses);
+                          if (found) { setAppliedPromo(found); setPromoBlockOpen(false); toast.success(`Промокод ${found.code} применён`); }
+                          else toast.error("Промокод не найден или недействителен");
+                        }}
+                        className="h-7 px-3 rounded-md bg-sky-500/20 border border-sky-500/40 text-sky-400 text-xs font-medium hover:bg-sky-500/30 transition-colors whitespace-nowrap"
+                      >
+                        Применить
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Discount input panel */}
+                  {discountBlockOpen && !appliedManualDiscount && (
+                    <div className="flex gap-1.5 items-center p-2 rounded-lg bg-violet-500/5 border border-violet-500/20">
+                      {/* Type toggle */}
+                      <div className="flex rounded-md overflow-hidden border border-violet-500/30 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setManualDiscountType("percent")}
+                          className={cn("h-7 w-7 text-xs font-bold transition-colors", manualDiscountType === "percent" ? "bg-violet-500/30 text-violet-300" : "text-muted-foreground hover:text-violet-400")}
+                        >%</button>
+                        <button
+                          type="button"
+                          onClick={() => setManualDiscountType("fixed")}
+                          className={cn("h-7 w-7 text-xs font-bold transition-colors border-l border-violet-500/30", manualDiscountType === "fixed" ? "bg-violet-500/30 text-violet-300" : "text-muted-foreground hover:text-violet-400")}
+                        >₽</button>
+                      </div>
+                      <input
+                        autoFocus
+                        type="number"
+                        min="0"
+                        max={manualDiscountType === "percent" ? "100" : undefined}
+                        placeholder={manualDiscountType === "percent" ? "0–100" : "Сумма"}
+                        value={manualDiscountInput}
+                        onChange={e => setManualDiscountInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const v = parseFloat(manualDiscountInput);
+                            if (!v || v <= 0) { toast.error("Укажите корректное значение скидки"); return; }
+                            if (manualDiscountType === "percent" && v > 100) { toast.error("Процент скидки не может превышать 100"); return; }
+                            setAppliedManualDiscount({ value: v, type: manualDiscountType });
+                            setDiscountBlockOpen(false);
+                            toast.success(`Скидка ${manualDiscountType === "percent" ? `${v}%` : `${v.toLocaleString("ru")} ₽`} применена`);
+                          }
+                        }}
+                        className="flex-1 h-7 bg-transparent text-xs focus:outline-none placeholder:text-muted-foreground/40 text-violet-100 min-w-0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const v = parseFloat(manualDiscountInput);
+                          if (!v || v <= 0) { toast.error("Укажите корректное значение скидки"); return; }
+                          if (manualDiscountType === "percent" && v > 100) { toast.error("Процент скидки не может превышать 100"); return; }
+                          setAppliedManualDiscount({ value: v, type: manualDiscountType });
+                          setDiscountBlockOpen(false);
+                          toast.success(`Скидка ${manualDiscountType === "percent" ? `${v}%` : `${v.toLocaleString("ru")} ₽`} применена`);
+                        }}
+                        className="h-7 px-3 rounded-md bg-violet-500/20 border border-violet-500/40 text-violet-400 text-xs font-medium hover:bg-violet-500/30 transition-colors whitespace-nowrap"
+                      >
+                        Применить
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Total */}
                 <div className="pt-2 border-t border-emerald-500/20 space-y-1.5">
-                  {(appliedBonus > 0 || appliedTierDiscount || appliedPromo) && (
+                  {(appliedBonus > 0 || appliedTierDiscount || appliedPromo || appliedManualDiscount) && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">Стоимость сеанса</span>
                       <span className="text-muted-foreground">{bookingCalc.total.toLocaleString("ru")} ₽</span>
@@ -1911,6 +2074,15 @@ export default function Home() {
                     <div className="flex items-center justify-between text-xs text-violet-400">
                       <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> Скидка уровня {clientTier?.name} ({clientTier?.discount}%)</span>
                       <span className="font-bold">−{tierDiscountAmount.toLocaleString("ru")} ₽</span>
+                    </div>
+                  )}
+                  {appliedManualDiscount && manualDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-violet-400">
+                      <span className="flex items-center gap-1">
+                        <Percent className="w-3 h-3" />
+                        Скидка {appliedManualDiscount.type === "percent" ? `${appliedManualDiscount.value}%` : `${appliedManualDiscount.value.toLocaleString("ru")} ₽`}
+                      </span>
+                      <span className="font-bold">−{manualDiscountAmount.toLocaleString("ru")} ₽</span>
                     </div>
                   )}
                   {appliedPromo && promoDiscountAmount > 0 && (
