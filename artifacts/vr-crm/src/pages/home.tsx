@@ -568,6 +568,11 @@ export default function Home() {
         adminName: form.adminName || null,
         paidAmount: form.paidAmount ? Number(form.paidAmount) : 0,
         reminders: { before24h: form.reminderBefore24h, before2h: form.reminderBefore2h, before30m: form.reminderBefore30m },
+        clientEmail: form.clientEmail || null,
+        clientTelegram: form.clientTelegram || null,
+        clientBirthday: form.clientBirthday || null,
+        clientDetailNotes: form.clientDetailNotes || null,
+        clientChildren: form.clientChildren,
       };
     };
 
@@ -1003,84 +1008,90 @@ export default function Home() {
                       );
                     })}
 
-                  {/* Event overlays */}
-                  {Array.from(eventGroups.entries()).map(([pkgId, group]) => {
+                  {/* Event overlays — per-zone cards so free zones remain visible */}
+                  {Array.from(eventGroups.entries()).flatMap(([pkgId, group]) => {
                     const pkg = packages.find((p) => p.id === pkgId);
-                    if (!pkg || pkg.zoneIds.length === 0) return null;
+                    if (!pkg || pkg.zoneIds.length === 0) return [];
 
+                    const eventZoneSet = new Set(pkg.zoneIds);
                     const zoneIndices = pkg.zoneIds
                       .map((zid) => zones.findIndex((z) => z.id === zid))
                       .filter((i) => i >= 0)
                       .sort((a, b) => a - b);
 
-                    if (zoneIndices.length === 0) return null;
+                    if (zoneIndices.length === 0) return [];
 
                     const rep = group[0];
                     const slotIdx = slotIndex.get(rep.startSlot) ?? 0;
                     const top = slotIdx * ROW_H;
+                    const height = rep.durationSlots * ROW_H;
                     const leftIdx = zoneIndices[0];
                     const rightIdx = zoneIndices[zoneIndices.length - 1];
-                    const left = TIME_COL_W + leftIdx * ZONE_COL_W;
-                    const width = (rightIdx - leftIdx + 1) * ZONE_COL_W;
-                    const height = rep.durationSlots * ROW_H;
-
                     const start = new Date(rep.startTime);
                     const end = new Date(rep.endTime);
 
-                    return (
-                      <div
-                        key={`event-${pkgId}`}
-                        className="absolute z-20 cursor-pointer"
-                        style={{ top, left, width, height }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEventDashPkgId(pkgId);
-                        }}
-                      >
+                    const result: React.ReactNode[] = [];
+
+                    // Card for each participating zone
+                    zoneIndices.forEach((zIdx, i) => {
+                      const left = TIME_COL_W + zIdx * ZONE_COL_W + 2;
+                      result.push(
                         <div
-                          className={cn(
-                            "w-full h-full rounded-xl border-2 border-blue-500/50",
-                            "bg-blue-500/10 backdrop-blur-sm",
-                            "hover:bg-blue-500/20 hover:border-blue-400/70 transition-all duration-200",
-                            "flex flex-col p-3 overflow-hidden shadow-lg",
-                            "relative"
-                          )}
+                          key={`event-${pkgId}-z${zIdx}`}
+                          className="absolute z-20 cursor-pointer"
+                          style={{ top: top + 2, left, width: ZONE_COL_W - 4, height: height - 4 }}
+                          onClick={(e) => { e.stopPropagation(); setEventDashPkgId(pkgId); }}
                         >
-                          {/* Top color bar */}
-                          <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-xl" />
-
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-lg">🎉</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-bold text-sm text-blue-200 truncate">
-                                {rep.clientName || "Мероприятие"}
-                              </div>
-                              <div className="text-[10px] text-blue-300/70 font-semibold">
-                                {pkg.name}
-                              </div>
-                            </div>
-                            <div className="shrink-0 text-[10px] bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full font-semibold border border-blue-500/40">
-                              {rep.guestsCount} гост.
-                            </div>
-                          </div>
-
-                          <div className="text-[10px] text-blue-300/60 mb-1">
-                            {pkg.zoneIds
-                              .map((zid) => zones.find((z) => z.id === zid)?.name)
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 text-xs text-blue-300/80 font-mono mt-auto">
-                            {format(start, "HH:mm")} – {format(end, "HH:mm")}
-                          </div>
-
-                          <div className="text-[9px] text-blue-300/40 mt-0.5 uppercase tracking-wider">
-                            Нажмите для подробностей
+                          <div className="w-full h-full rounded-xl border-2 border-blue-500/60 bg-blue-500/15 hover:bg-blue-500/25 hover:border-blue-400/80 transition-all duration-200 flex flex-col p-2 overflow-hidden shadow-lg relative">
+                            <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400 rounded-t-xl" />
+                            {i === 0 ? (
+                              <>
+                                <div className="flex items-center gap-1.5 mb-1 mt-1">
+                                  <span className="text-sm">🎉</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-xs text-blue-200 truncate">{rep.clientName || "Мероприятие"}</div>
+                                    <div className="text-[9px] text-blue-300/70 font-semibold truncate">{pkg.name}</div>
+                                  </div>
+                                </div>
+                                <div className="text-[9px] text-blue-300/50 truncate">
+                                  {pkg.zoneIds.map((zid) => zones.find((z) => z.id === zid)?.name).filter(Boolean).join(" · ")}
+                                </div>
+                                <div className="flex items-center justify-between mt-auto">
+                                  <span className="text-[9px] text-blue-300/80 font-mono">{format(start, "HH:mm")} – {format(end, "HH:mm")}</span>
+                                  <span className="text-[9px] bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/40">{rep.guestsCount} гост.</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="font-bold text-xs text-blue-200 truncate mt-1">🎉 {rep.clientName || "Мероприятие"}</div>
+                                <div className="text-[9px] text-blue-300/70 truncate">{pkg.name}</div>
+                                <div className="text-[9px] text-blue-300/80 font-mono mt-auto">{format(start, "HH:mm")} – {format(end, "HH:mm")}</div>
+                              </>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    );
+                      );
+                    });
+
+                    // "Free" subtle tint for non-participating zones between leftIdx and rightIdx
+                    for (let zIdx = leftIdx; zIdx <= rightIdx; zIdx++) {
+                      const zone = zones[zIdx];
+                      if (!zone || eventZoneSet.has(zone.id)) continue;
+                      const left = TIME_COL_W + zIdx * ZONE_COL_W + 1;
+                      result.push(
+                        <div
+                          key={`free-${pkgId}-z${zIdx}`}
+                          className="absolute pointer-events-none"
+                          style={{ top: top + 1, left, width: ZONE_COL_W - 2, height: height - 2, zIndex: 5 }}
+                        >
+                          <div className="w-full h-full rounded-lg border border-dashed border-emerald-500/30 bg-emerald-500/5 flex flex-col items-center justify-center gap-1">
+                            <span className="text-[9px] text-emerald-400/60 font-semibold uppercase tracking-widest">Свободна</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return result;
                   })}
                 </div>
               </div>

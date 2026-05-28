@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,12 @@ import {
   ChevronLeft, Phone, Mail, MessageSquare, Star, Calendar, CreditCard,
   Gamepad2, Users, Baby, Cake, UtensilsCrossed, TrendingUp, AlertTriangle,
   Bot, Sparkles, Heart, Trophy, Clock, Zap, Edit2, Save, X, ChevronDown, ChevronUp,
-  Plus, Trash2, StickyNote, Send
+  Plus, Trash2, StickyNote, Send, Gift, Crown
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useLocalStorage } from "@/lib/store";
 
 // ─── MOCK CLIENT DATA ──────────────────────────────────────────────────────────
 
@@ -134,11 +135,54 @@ function Section({ title, icon: Icon, children, defaultOpen = true }: {
 type Child = { name: string; birthday: string };
 type Note = { id: number; text: string; createdAt: string };
 
+type LoyaltyTier = {
+  id: string | number; name: string; minPoints: number; discount: number;
+  cashbackPercent: number; color: string; icon: string; perks: string[]; active: boolean;
+};
+type StoredClient = {
+  id: number; name: string; phone: string; visitCount?: number; lastVisit?: string;
+  loyaltyPoints?: number; bonusBalance?: number;
+};
+
+const DEFAULT_CLIENTS: StoredClient[] = [
+  { id: 1, name: "Андрей Смирнов",  phone: "+7 916 123-45-67", visitCount: 12, loyaltyPoints: 3200, bonusBalance: 450 },
+  { id: 2, name: "Мария Козлова",   phone: "+7 903 987-65-43", visitCount: 8,  loyaltyPoints: 1800, bonusBalance: 220 },
+  { id: 3, name: "Дмитрий Новиков", phone: "+7 926 555-12-34", visitCount: 3,  loyaltyPoints: 450,  bonusBalance: 50  },
+  { id: 4, name: "Елена Петрова",   phone: "+7 985 432-10-98", visitCount: 25, loyaltyPoints: 7500, bonusBalance: 1200 },
+  { id: 5, name: "Иван Сидоров",    phone: "+7 965 876-54-32", visitCount: 1,  loyaltyPoints: 0,    bonusBalance: 0   },
+  { id: 6, name: "Наталья Волкова", phone: "+7 911 234-56-78", visitCount: 7,  loyaltyPoints: 1500, bonusBalance: 180 },
+  { id: 7, name: "Алексей Морозов", phone: "+7 977 345-67-89", visitCount: 15, loyaltyPoints: 4200, bonusBalance: 680 },
+  { id: 8, name: "Светлана Орлова", phone: "+7 999 456-78-90", visitCount: 4,  loyaltyPoints: 850,  bonusBalance: 90  },
+];
+
+const DEFAULT_LOYALTY_TIERS: LoyaltyTier[] = [
+  { id: "t1", name: "Стандарт", minPoints: 0,    discount: 0,  cashbackPercent: 2, color: "#6b7280", icon: "⭐", perks: ["Накопление бонусов", "Доступ к акциям"], active: true },
+  { id: "t2", name: "Серебро",  minPoints: 1000, discount: 5,  cashbackPercent: 3, color: "#94a3b8", icon: "🥈", perks: ["Скидка 5%", "Приоритет бронирования", "Спецпредложения"], active: true },
+  { id: "t3", name: "Золото",   minPoints: 3000, discount: 10, cashbackPercent: 5, color: "#f59e0b", icon: "🥇", perks: ["Скидка 10%", "Бонус +10% к часам", "Бесплатный гардероб", "Ранний доступ"], active: true },
+  { id: "t4", name: "VIP",      minPoints: 7000, discount: 15, cashbackPercent: 7, color: "#6366f1", icon: "👑", perks: ["Скидка 15%", "VIP-зона", "Бесплатные напитки", "Персональный менеджер", "Безлимит 1 раз/мес"], active: true },
+];
+
 export default function ClientDetail() {
   const params = useParams<{ id: string }>();
   const client = MOCK_CLIENT;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: client.name, phone: client.phone, email: client.email });
+
+  // Loyalty data from localStorage
+  const [allClients] = useLocalStorage<StoredClient[]>("vrpark_clients", DEFAULT_CLIENTS);
+  const [loyaltyTiers] = useLocalStorage<LoyaltyTier[]>("vrpark_loyalty_tiers", DEFAULT_LOYALTY_TIERS);
+
+  const { loyaltyClient, currentTier, nextTier } = useMemo(() => {
+    const normalize = (p: string) => p.replace(/\D/g, "").slice(-7);
+    const lsClient = allClients.find(c => normalize(c.phone) === normalize(client.phone));
+    if (!lsClient) return { loyaltyClient: null, currentTier: null, nextTier: null };
+
+    const activeTiers = loyaltyTiers.filter(t => t.active).sort((a, b) => a.minPoints - b.minPoints);
+    const pts = lsClient.loyaltyPoints ?? 0;
+    const cur = [...activeTiers].filter(t => pts >= t.minPoints).pop() ?? null;
+    const nxt = activeTiers.find(t => t.minPoints > pts) ?? null;
+    return { loyaltyClient: lsClient, currentTier: cur, nextTier: nxt };
+  }, [allClients, loyaltyTiers, client.phone]);
 
   // Children state
   const [children, setChildren] = useState<Child[]>(
@@ -392,6 +436,86 @@ export default function ClientDetail() {
 
             {/* RIGHT column */}
             <div className="space-y-4">
+
+              {/* Block: Loyalty */}
+              <Section title="Программа лояльности" icon={Heart}>
+                {loyaltyClient ? (
+                  <div className="space-y-3">
+                    {/* Current tier */}
+                    {currentTier ? (
+                      <div
+                        className="flex items-center gap-3 p-3 rounded-xl border"
+                        style={{ borderColor: currentTier.color + "50", backgroundColor: currentTier.color + "15" }}
+                      >
+                        <span className="text-2xl">{currentTier.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-black" style={{ color: currentTier.color }}>{currentTier.name}</span>
+                            {currentTier.discount > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/30 border border-border/40 font-semibold text-muted-foreground">−{currentTier.discount}%</span>
+                            )}
+                            {currentTier.cashbackPercent > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 font-semibold text-emerald-400">{currentTier.cashbackPercent}% кешбек</span>
+                            )}
+                          </div>
+                          {currentTier.perks.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {currentTier.perks.map(p => (
+                                <span key={p} className="text-[9px] text-muted-foreground/70 bg-muted/20 px-1.5 py-0.5 rounded-md">✓ {p}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl border border-border/40 bg-card/30 text-xs text-muted-foreground text-center">
+                        Уровень не присвоен
+                      </div>
+                    )}
+
+                    {/* Points + bonus balance */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-xl bg-card/40 border border-border/30 text-center">
+                        <p className="text-base font-black text-primary">{(loyaltyClient.loyaltyPoints ?? 0).toLocaleString("ru")}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Баллов</p>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-card/40 border border-border/30 text-center">
+                        <p className="text-base font-black text-amber-400">{(loyaltyClient.bonusBalance ?? 0).toLocaleString("ru")} ₽</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Бонус-баланс</p>
+                      </div>
+                    </div>
+
+                    {/* Progress to next tier */}
+                    {nextTier && (
+                      <div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                          <span>До уровня <span className="font-semibold" style={{ color: nextTier.color }}>{nextTier.icon} {nextTier.name}</span></span>
+                          <span>{(loyaltyClient.loyaltyPoints ?? 0).toLocaleString("ru")} / {nextTier.minPoints.toLocaleString("ru")} баллов</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted/20 overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(100, ((loyaltyClient.loyaltyPoints ?? 0) / nextTier.minPoints) * 100)}%`,
+                              backgroundColor: nextTier.color,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {!nextTier && currentTier && (
+                      <div className="text-[10px] text-center text-amber-400/80 flex items-center justify-center gap-1">
+                        <Crown className="w-3 h-3" /> Максимальный уровень достигнут
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground/50 text-center py-3">
+                    Клиент не найден в базе лояльности.<br />
+                    <span className="text-[10px]">Добавьте клиента в разделе «Клиенты»</span>
+                  </p>
+                )}
+              </Section>
 
               {/* Block 4: Family */}
               <Section title="Семья и дети" icon={Baby}>
