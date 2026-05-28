@@ -35,6 +35,10 @@ import {
   Cake,
   Star,
   Gift,
+  Percent,
+  Tag,
+  Ticket,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -448,6 +452,8 @@ export default function Home() {
   // Loyalty data (read-only here, managed in loyalty page)
   const [allClients] = useLocalStorage<Array<{ id: number; name: string; phone: string; visitCount: number; lastVisit: string; loyaltyPoints?: number; bonusBalance?: number }>>("vrpark_clients", []);
   const [loyaltyTiers] = useLocalStorage<Array<{ id: string; name: string; minPoints: number; discount: number; cashbackPercent: number; color: string; icon: string; perks: string[]; active: boolean }>>("vrpark_loyalty_tiers", []);
+  const [promos] = useLocalStorage<Array<{ id: string; code: string; discount: number; type: "percent" | "fixed"; uses: number; maxUses: number; active: boolean }>>("vrpark_promos", []);
+  const [cashbackEnabled] = useLocalStorage("vrpark_cashback_enabled", true);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -461,6 +467,9 @@ export default function Home() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<BookingFormState>(EMPTY_FORM);
   const [appliedBonus, setAppliedBonus] = useState(0);
+  const [appliedTierDiscount, setAppliedTierDiscount] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<{ id: string; code: string; discount: number; type: "percent" | "fixed" } | null>(null);
 
   useEffect(() => {
     if (form.paidAmount && Number(form.paidAmount) > 0 && !form.isEvent) {
@@ -487,6 +496,9 @@ export default function Home() {
       zoneId: zoneId?.toString() || "",
     });
     setAppliedBonus(0);
+    setAppliedTierDiscount(false);
+    setPromoInput("");
+    setAppliedPromo(null);
     setIsModalOpen(true);
   }, [dateStr]);
 
@@ -522,6 +534,9 @@ export default function Home() {
       clientChildren: (b as any).clientChildren ?? [],
     });
     setAppliedBonus(0);
+    setAppliedTierDiscount(false);
+    setPromoInput("");
+    setAppliedPromo(null);
     setIsModalOpen(true);
   }, []);
 
@@ -706,7 +721,27 @@ export default function Home() {
     return [...loyaltyTiers].filter(t => t.active).sort((a, b) => b.minPoints - a.minPoints).find(t => pts >= t.minPoints) ?? null;
   }, [foundClient, loyaltyTiers]);
 
-  const finalTotal = bookingCalc ? Math.max(0, bookingCalc.total - appliedBonus) : 0;
+  const tierDiscountAmount = useMemo(() => {
+    if (!appliedTierDiscount || !clientTier || !bookingCalc || clientTier.discount <= 0) return 0;
+    return Math.round(bookingCalc.total * clientTier.discount / 100);
+  }, [appliedTierDiscount, clientTier, bookingCalc]);
+
+  const promoDiscountAmount = useMemo(() => {
+    if (!appliedPromo || !bookingCalc) return 0;
+    return appliedPromo.type === "percent"
+      ? Math.round(bookingCalc.total * appliedPromo.discount / 100)
+      : Math.min(appliedPromo.discount, bookingCalc.total);
+  }, [appliedPromo, bookingCalc]);
+
+  const finalTotal = bookingCalc
+    ? Math.max(0, bookingCalc.total - appliedBonus - tierDiscountAmount - promoDiscountAmount)
+    : 0;
+
+  const cashbackPreview = useMemo(() => {
+    if (!cashbackEnabled || !clientTier || finalTotal <= 0 || clientTier.cashbackPercent <= 0) return 0;
+    return Math.round(finalTotal * clientTier.cashbackPercent / 100);
+  }, [cashbackEnabled, clientTier, finalTotal]);
+
   const prepayAmount = finalTotal ? Math.round(finalTotal * prepayPercent / 100) : 0;
 
   const handleGenerateLink = () => {
@@ -1435,9 +1470,16 @@ export default function Home() {
 
             {/* Loyalty panel — shown when phone matches a known client */}
             {foundClient && !form.isEvent && (
-              <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-2.5 space-y-2">
+              <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
+                {/* Client header */}
                 <div className="flex items-center gap-2.5">
-                  {clientTier && <span className="text-lg leading-none">{clientTier.icon}</span>}
+                  {clientTier ? (
+                    <span className="text-xl leading-none">{clientTier.icon}</span>
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-muted/30 flex items-center justify-center text-xs text-muted-foreground font-bold">
+                      {foundClient.name.charAt(0)}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-semibold">{foundClient.name}</span>
@@ -1446,22 +1488,38 @@ export default function Home() {
                           {clientTier.name}
                         </span>
                       )}
+                      <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-muted/20 border border-border/40">
+                        {foundClient.visitCount} визитов
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5">
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Star className="w-2.5 h-2.5" />{(foundClient.loyaltyPoints ?? 0).toLocaleString("ru")} очков
+                        <Star className="w-2.5 h-2.5 text-amber-400" />
+                        <span className="text-foreground font-medium">{(foundClient.loyaltyPoints ?? 0).toLocaleString("ru")}</span> очков
                       </span>
-                      <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                        <Gift className="w-2.5 h-2.5" />{(foundClient.bonusBalance ?? 0).toLocaleString("ru")} ₽ бонусов
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Gift className="w-2.5 h-2.5 text-emerald-400" />
+                        <span className="text-emerald-400 font-semibold">{(foundClient.bonusBalance ?? 0).toLocaleString("ru")} ₽</span> бонусов
                       </span>
+                      {clientTier && clientTier.discount > 0 && (
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Tag className="w-2.5 h-2.5 text-violet-400" />
+                          <span className="text-violet-400 font-semibold">−{clientTier.discount}%</span> скидка уровня
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
+
+                {/* Divider */}
+                <div className="border-t border-violet-500/15" />
+
+                {/* Bonus balance */}
                 {(foundClient.bonusBalance ?? 0) > 0 && bookingCalc && (
                   appliedBonus > 0 ? (
-                    <div className="flex items-center justify-between pt-0.5">
+                    <div className="flex items-center justify-between">
                       <span className="text-xs text-emerald-400 flex items-center gap-1.5">
-                        <Check className="w-3 h-3" /> Применено бонусов: −{appliedBonus.toLocaleString("ru")} ₽
+                        <Check className="w-3 h-3" /> Бонусы: −{appliedBonus.toLocaleString("ru")} ₽
                       </span>
                       <button type="button" onClick={() => setAppliedBonus(0)} className="text-[10px] text-muted-foreground hover:text-red-400 underline transition-colors">отменить</button>
                     </div>
@@ -1474,11 +1532,85 @@ export default function Home() {
                         setAppliedBonus(maxBonus);
                         toast.success(`Применено ${maxBonus.toLocaleString("ru")} ₽ бонусов`);
                       }}
-                      className="w-full h-7 rounded-md text-xs bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium"
+                      className="w-full h-7 rounded-md text-xs bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium flex items-center justify-center gap-1.5"
                     >
-                      Применить бонусы (до {Math.min(foundClient.bonusBalance ?? 0, Math.floor(bookingCalc.total * 0.5)).toLocaleString("ru")} ₽)
+                      <Gift className="w-3 h-3" />
+                      Применить бонусы — до {Math.min(foundClient.bonusBalance ?? 0, Math.floor(bookingCalc.total * 0.5)).toLocaleString("ru")} ₽
                     </button>
                   )
+                )}
+
+                {/* Tier discount */}
+                {clientTier && clientTier.discount > 0 && bookingCalc && (
+                  appliedTierDiscount ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-violet-400 flex items-center gap-1.5">
+                        <Check className="w-3 h-3" /> Скидка {clientTier.name}: −{tierDiscountAmount.toLocaleString("ru")} ₽ ({clientTier.discount}%)
+                      </span>
+                      <button type="button" onClick={() => setAppliedTierDiscount(false)} className="text-[10px] text-muted-foreground hover:text-red-400 underline transition-colors">отменить</button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setAppliedTierDiscount(true); toast.success(`Скидка ${clientTier.name} (${clientTier.discount}%) применена`); }}
+                      className="w-full h-7 rounded-md text-xs bg-violet-500/10 border border-violet-500/25 text-violet-400 hover:bg-violet-500/20 transition-colors font-medium flex items-center justify-center gap-1.5"
+                    >
+                      <Tag className="w-3 h-3" />
+                      Применить скидку уровня {clientTier.name} ({clientTier.discount}%)
+                    </button>
+                  )
+                )}
+
+                {/* Promo code */}
+                {appliedPromo ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-sky-400 flex items-center gap-1.5">
+                      <Check className="w-3 h-3" />
+                      Промокод <span className="font-mono font-bold">{appliedPromo.code}</span>:&nbsp;
+                      −{appliedPromo.type === "percent" ? `${appliedPromo.discount}%` : `${appliedPromo.discount.toLocaleString("ru")} ₽`}
+                    </span>
+                    <button type="button" onClick={() => { setAppliedPromo(null); setPromoInput(""); }} className="text-[10px] text-muted-foreground hover:text-red-400 underline transition-colors">отменить</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <div className="relative flex-1">
+                      <Ticket className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Промокод"
+                        value={promoInput}
+                        onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const found = promos.find(p => p.active && p.code === promoInput.trim() && p.uses < p.maxUses);
+                            if (found) { setAppliedPromo(found); toast.success(`Промокод ${found.code} применён`); }
+                            else toast.error("Промокод не найден или недействителен");
+                          }
+                        }}
+                        className="w-full h-7 pl-7 pr-2 rounded-md bg-background/60 border border-border/50 text-xs font-mono focus:outline-none focus:border-sky-500/50 placeholder:text-muted-foreground/50"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const found = promos.find(p => p.active && p.code === promoInput.trim() && p.uses < p.maxUses);
+                        if (found) { setAppliedPromo(found); toast.success(`Промокод ${found.code} применён`); }
+                        else toast.error("Промокод не найден или недействителен");
+                      }}
+                      className="h-7 px-2.5 rounded-md text-xs bg-sky-500/10 border border-sky-500/25 text-sky-400 hover:bg-sky-500/20 transition-colors font-medium whitespace-nowrap"
+                    >
+                      Применить
+                    </button>
+                  </div>
+                )}
+
+                {/* Cashback preview */}
+                {cashbackPreview > 0 && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground pt-0.5">
+                    <TrendingUp className="w-3 h-3 text-amber-400" />
+                    Начислится <span className="text-amber-400 font-semibold">{cashbackPreview.toLocaleString("ru")} ₽</span> кешбека ({clientTier?.cashbackPercent}%)
+                  </div>
                 )}
               </div>
             )}
@@ -1743,17 +1875,29 @@ export default function Home() {
 
                 {/* Total */}
                 <div className="pt-2 border-t border-emerald-500/20 space-y-1.5">
+                  {(appliedBonus > 0 || appliedTierDiscount || appliedPromo) && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Стоимость сеанса</span>
+                      <span className="text-muted-foreground">{bookingCalc.total.toLocaleString("ru")} ₽</span>
+                    </div>
+                  )}
+                  {appliedTierDiscount && tierDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-violet-400">
+                      <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> Скидка уровня {clientTier?.name} ({clientTier?.discount}%)</span>
+                      <span className="font-bold">−{tierDiscountAmount.toLocaleString("ru")} ₽</span>
+                    </div>
+                  )}
+                  {appliedPromo && promoDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-sky-400">
+                      <span className="flex items-center gap-1"><Ticket className="w-3 h-3" /> Промокод {appliedPromo.code}</span>
+                      <span className="font-bold">−{promoDiscountAmount.toLocaleString("ru")} ₽</span>
+                    </div>
+                  )}
                   {appliedBonus > 0 && (
-                    <>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Стоимость сеанса</span>
-                        <span className="text-muted-foreground">{bookingCalc.total.toLocaleString("ru")} ₽</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-emerald-400">
-                        <span className="flex items-center gap-1"><Gift className="w-3 h-3" /> Бонусы клиента</span>
-                        <span className="font-bold">−{appliedBonus.toLocaleString("ru")} ₽</span>
-                      </div>
-                    </>
+                    <div className="flex items-center justify-between text-xs text-emerald-400">
+                      <span className="flex items-center gap-1"><Gift className="w-3 h-3" /> Бонусы клиента</span>
+                      <span className="font-bold">−{appliedBonus.toLocaleString("ru")} ₽</span>
+                    </div>
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold">Итого</span>
@@ -1761,6 +1905,12 @@ export default function Home() {
                       {finalTotal.toLocaleString("ru")} ₽
                     </span>
                   </div>
+                  {cashbackPreview > 0 && (
+                    <div className="flex items-center gap-1 text-[10px] text-amber-400/80">
+                      <TrendingUp className="w-2.5 h-2.5" />
+                      Начислится {cashbackPreview.toLocaleString("ru")} ₽ кешбека
+                    </div>
+                  )}
                 </div>
 
                 {/* Prepay % selector */}
