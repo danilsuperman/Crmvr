@@ -29,6 +29,7 @@ import Knowledge from "@/pages/knowledge";
 import KnowledgeArticle from "@/pages/knowledge-article";
 import ClientsSegments from "@/pages/clients-segments";
 import ClientsSegmentNew from "@/pages/clients-segments-new";
+import GuestPortal from "@/pages/guest-portal";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,8 @@ function Router() {
         <Route path="/ai-admin" component={AiAdmin} />
         <Route path="/knowledge" component={Knowledge} />
         <Route path="/knowledge/:id" component={KnowledgeArticle} />
+        <Route path="/guest-portal" component={GuestPortal} />
+        <Route path="/guest-portal/:clientId" component={GuestPortal} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

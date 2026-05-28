@@ -10,7 +10,7 @@ import {
   ChevronLeft, Phone, Mail, MessageSquare, Star, Calendar, CreditCard,
   Gamepad2, Users, Baby, Cake, UtensilsCrossed, TrendingUp, AlertTriangle,
   Bot, Sparkles, Heart, Trophy, Clock, Zap, Edit2, Save, X, ChevronDown, ChevronUp,
-  Plus, Trash2, StickyNote, Send, Gift, Crown
+  Plus, Trash2, StickyNote, Send, Gift, Crown, Smartphone
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -259,6 +259,11 @@ export default function ClientDetail() {
         </div>
         <div className="flex items-center gap-2">
           <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full border", statusColor)}>{client.status}</span>
+          <Link href="/guest-portal">
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-violet-500/40 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300">
+              <Smartphone className="w-3.5 h-3.5" /> Кабинет гостя
+            </Button>
+          </Link>
           {editing ? (
             <>
               <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setEditing(false); toast.success("Сохранено"); }}>

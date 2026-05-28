@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { BookOpen, Users, Settings, User, Cpu, Monitor, LayoutTemplate, BarChart3, Globe, ChevronDown, Plus, X, Camera, MessageSquare, Brain, Trophy, Heart, Bot, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { BookOpen, Users, Settings, User, Cpu, Monitor, LayoutTemplate, BarChart3, Globe, ChevronDown, Plus, X, Camera, MessageSquare, Brain, Trophy, Heart, Bot, PanelLeftClose, PanelLeftOpen, Smartphone } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/store";
@@ -28,6 +28,7 @@ const navItems = [
   { href: "/registration", icon: LayoutTemplate, label: "Конструктор" },
   { href: "/leagues", icon: Trophy, label: "Лиги и рейтинги" },
   { href: "/loyalty", icon: Heart, label: "Лояльность" },
+  { href: "/guest-portal", icon: Smartphone, label: "Кабинет гостя" },
   { href: "/ai-consulting", icon: Brain, label: "AI Консалтинг" },
   { href: "/ai-admin", icon: Bot, label: "AI Администратор" },
   { href: "/knowledge", icon: BookOpen, label: "База знаний" },
