@@ -175,7 +175,8 @@ export default function Knowledge() {
           </div>
           {adminMode && (
             <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={openAdd}>
-              <Plus className="w-3.5 h-3.5" /> Добавить статью
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Добавить статью</span>
             </Button>
           )}
         </div>
@@ -206,10 +207,10 @@ export default function Knowledge() {
 
         {/* Tabs */}
         <Tabs defaultValue="all">
-          <TabsList className="mb-4 bg-muted/30 border border-border/50 h-9 flex-wrap gap-0.5">
-            <TabsTrigger value="all" className="text-xs">Все ({articles.length})</TabsTrigger>
+          <TabsList className="mb-4 bg-muted/30 border border-border/50 h-auto flex-nowrap gap-0.5 overflow-x-auto w-full justify-start">
+            <TabsTrigger value="all" className="text-xs shrink-0">Все ({articles.length})</TabsTrigger>
             {CATEGORIES.map(cat => (
-              <TabsTrigger key={cat.id} value={cat.id} className="text-xs">
+              <TabsTrigger key={cat.id} value={cat.id} className="text-xs shrink-0">
                 {cat.label} ({articles.filter(a => a.category === cat.id).length})
               </TabsTrigger>
             ))}
@@ -224,51 +225,57 @@ export default function Knowledge() {
                 const hasVideo = article.blocks?.some(b => b.type === "video");
                 return (
                   <div key={article.id} className={cn("rounded-xl border transition-all", isRead ? "border-border/30 bg-card/20" : "border-border/50 bg-card/30")}>
-                    <div className="flex items-center gap-3 p-3">
-                      <div className={cn("w-8 h-8 rounded-lg border flex items-center justify-center shrink-0", cat?.color ?? "")}>
-                        {cat && <cat.icon className={cn("w-4 h-4", cat.color.split(" ")[0])} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold truncate">{article.title}</p>
-                          {article.required && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">Обязательно</span>}
-                          {hasVideo && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0 flex items-center gap-1"><Video className="w-2.5 h-2.5" />Видео</span>}
+                    <div className="p-3 flex flex-col gap-2">
+                      {/* Row 1: icon + title/badges + admin actions */}
+                      <div className="flex items-start gap-3">
+                        <div className={cn("w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 mt-0.5", cat?.color ?? "")}>
+                          {cat && <cat.icon className={cn("w-4 h-4", cat.color.split(" ")[0])} />}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold leading-snug line-clamp-2">{article.title}</p>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {article.required && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">Обязательно</span>}
+                            {hasVideo && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0 flex items-center gap-1"><Video className="w-2.5 h-2.5" />Видео</span>}
+                          </div>
+                        </div>
+                        {adminMode && (
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button onClick={e => { e.stopPropagation(); openEdit(article); }} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); handleDelete(article.id); }} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {/* Row 2: meta + check + read */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                           <span className={cn("px-1.5 py-0.5 rounded-full border", diff.cls)}>{diff.label}</span>
                           <span>{article.readTime} мин.</span>
                           <span>{article.blocks?.length ?? 1} {(article.blocks?.length ?? 1) === 1 ? "блок" : "блока"}</span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          title={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
-                          onClick={e => { e.stopPropagation(); setReadState(s => ({ ...s, [article.id]: !isRead })); toast.success(isRead ? "Отмечено как непрочитанное" : "Отмечено как прочитанное"); }}
-                          className="rounded-full transition-all hover:scale-110 active:scale-95"
-                        >
-                          {isRead
-                            ? <CheckCircle2 className="w-4 h-4 text-emerald-400 hover:text-emerald-300" />
-                            : <Circle className="w-4 h-4 text-muted-foreground/40 hover:text-emerald-400/70" />
-                          }
-                        </button>
-                        {adminMode && (
-                          <>
-                            <button onClick={e => { e.stopPropagation(); openEdit(article); }} className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors">
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button onClick={e => { e.stopPropagation(); handleDelete(article.id); }} className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </>
-                        )}
-                        <Link href={`/knowledge/${article.id}`}>
+                        <div className="flex items-center gap-2 shrink-0">
                           <button
-                            onClick={() => setReadState(s => ({ ...s, [article.id]: true }))}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+                            title={isRead ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                            onClick={e => { e.stopPropagation(); setReadState(s => ({ ...s, [article.id]: !isRead })); toast.success(isRead ? "Отмечено как непрочитанное" : "Отмечено как прочитанное"); }}
+                            className="rounded-full transition-all hover:scale-110 active:scale-95"
                           >
-                            Читать <ChevronRight className="w-3 h-3" />
+                            {isRead
+                              ? <CheckCircle2 className="w-4 h-4 text-emerald-400 hover:text-emerald-300" />
+                              : <Circle className="w-4 h-4 text-muted-foreground/40 hover:text-emerald-400/70" />
+                            }
                           </button>
-                        </Link>
+                          <Link href={`/knowledge/${article.id}`}>
+                            <button
+                              onClick={() => setReadState(s => ({ ...s, [article.id]: true }))}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+                            >
+                              Читать <ChevronRight className="w-3 h-3" />
+                            </button>
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   </div>
