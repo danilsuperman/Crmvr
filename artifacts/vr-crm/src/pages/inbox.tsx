@@ -4,7 +4,7 @@ import {
   MessageSquare, Search, Filter, Send, Paperclip, Smile, Phone,
   MoreHorizontal, CheckCheck, Check, Bot, Zap, Star, Tag,
   Calendar, CreditCard, User, ChevronRight, Sparkles, X, Plus,
-  Clock, AlertCircle, Image, Mic
+  Clock, AlertCircle, Image, Mic, ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,6 +172,7 @@ export default function Inbox() {
   const [filterCh, setFilterCh] = useState<Channel | "all">("all");
   const [filterStatus, setFilterStatus] = useState<ConvStatus | "all">("all");
   const [search, setSearch] = useState("");
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
 
   const conv = convs.find(c => c.id === selectedId)!;
   const chMeta = CHANNEL_META[conv.channel];
@@ -192,7 +193,7 @@ export default function Inbox() {
     <div className="flex h-full overflow-hidden">
 
       {/* ── LEFT: CONVERSATION LIST ────────────────────────────────── */}
-      <div className="w-72 shrink-0 border-r border-border/50 flex flex-col bg-card/20">
+      <div className={cn("shrink-0 border-r border-border/50 flex flex-col bg-card/20", mobileView === "chat" ? "hidden md:flex md:w-72" : "w-full md:w-72")}>
         {/* Header */}
         <div className="p-3 border-b border-border/30">
           <div className="flex items-center justify-between mb-2">
@@ -243,7 +244,7 @@ export default function Inbox() {
         {/* Conversation list */}
         <div className="flex-1 overflow-auto">
           {filtered.map(c => (
-            <button key={c.id} onClick={() => setSelectedId(c.id)}
+            <button key={c.id} onClick={() => { setSelectedId(c.id); setMobileView("chat"); }}
               className={cn("w-full text-left px-3 py-2.5 border-b border-border/20 hover:bg-muted/10 transition-colors relative",
                 selectedId === c.id ? "bg-primary/8 border-l-2 border-l-primary" : ""
               )}>
@@ -282,9 +283,12 @@ export default function Inbox() {
       </div>
 
       {/* ── CENTER: CHAT ───────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn("flex-1 flex flex-col min-w-0", mobileView === "list" && "hidden md:flex")}>
         {/* Chat header */}
         <div className="h-14 border-b border-border/50 flex items-center px-4 gap-3 bg-card/30 shrink-0">
+          <button className="md:hidden -ml-1 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted/20 shrink-0" onClick={() => setMobileView("list")}>
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <div className="flex-1 min-w-0 flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
               {conv.clientName.split(" ").map(w => w[0]).join("").slice(0, 2)}
@@ -436,7 +440,7 @@ export default function Inbox() {
       </div>
 
       {/* ── RIGHT: CLIENT PANEL ────────────────────────────────────── */}
-      <div className="w-64 shrink-0 border-l border-border/50 flex flex-col bg-card/10 overflow-auto">
+      <div className="hidden lg:flex w-64 shrink-0 border-l border-border/50 flex-col bg-card/10 overflow-auto">
         {/* Client info */}
         <div className="p-3 border-b border-border/30">
           <div className="flex items-center gap-2 mb-2">

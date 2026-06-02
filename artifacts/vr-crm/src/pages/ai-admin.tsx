@@ -159,7 +159,7 @@ export default function AiAdmin() {
         ))}
       </div>
 
-      <div className="flex-1 overflow-hidden px-4 md:px-6 pt-4 pb-4 md:pb-6 flex flex-col gap-3 min-h-0">
+      <div className="flex-1 overflow-hidden px-4 md:px-6 pt-4 pb-20 md:pb-6 flex flex-col gap-3 min-h-0">
 
         {/* CHAT */}
         {tab === "chat" && (

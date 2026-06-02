@@ -894,7 +894,7 @@ export default function Home() {
         </div>
 
         {/* View mode toggle */}
-        <div className="hidden sm:flex items-center gap-0.5 bg-muted/30 rounded-lg p-0.5 border border-border/40 ml-1">
+        <div className="flex items-center gap-0.5 bg-muted/30 rounded-lg p-0.5 border border-border/40 ml-1">
           <button
             onClick={() => setViewMode("map")}
             className={cn(

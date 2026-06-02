@@ -290,7 +290,7 @@ export default function Settings() {
 
       <div className="flex-1 p-4 md:p-6 overflow-auto pb-20 md:pb-6">
         <Tabs defaultValue="zones" className="w-full max-w-4xl">
-          <TabsList className="mb-4 bg-muted/30 border border-border/50 h-9 flex-wrap gap-1">
+          <TabsList className="mb-4 bg-muted/30 border border-border/50 h-auto flex-nowrap gap-1 overflow-x-auto w-full justify-start">
             <TabsTrigger value="zones" className="text-xs">Зоны</TabsTrigger>
             <TabsTrigger value="sessions" className="text-xs">Типы сеансов</TabsTrigger>
             <TabsTrigger value="packages" className="text-xs">Пакеты</TabsTrigger>

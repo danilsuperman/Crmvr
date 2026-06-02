@@ -1352,7 +1352,7 @@ export default function GuestPortal() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto pb-20 md:pb-0">
         <div className="max-w-2xl mx-auto px-4 pt-4">
           {dashTab === "guests" && (
             <GuestsTab
