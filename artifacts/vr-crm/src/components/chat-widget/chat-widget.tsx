@@ -34,9 +34,16 @@ export function ChatWidget() {
   const [typing, setTyping] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (open && !minimized) {
@@ -87,8 +94,8 @@ export function ChatWidget() {
             minimized ? "h-12 w-72" : "w-80 h-[480px] sm:w-96"
           )}
           style={{
-            bottom: `${24 - pos.y}px`,
-            right: `${24 - pos.x}px`,
+            bottom: `${(isMobile ? 72 : 24) - pos.y}px`,
+            right: `${(isMobile ? 16 : 24) - pos.x}px`,
             userSelect: dragging ? "none" : undefined,
           }}
         >
@@ -195,7 +202,7 @@ export function ChatWidget() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-500 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+          className="fixed bottom-[4.5rem] md:bottom-6 right-4 md:right-6 z-50 w-12 h-12 rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-500 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
         >
           <MessageSquare className="w-5 h-5" />
           <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-background" />
