@@ -989,7 +989,7 @@ export default function Home() {
                   className="flex border-b border-border/50 sticky top-0 bg-background/95 backdrop-blur z-20"
                   style={{ minWidth: TIME_COL_W + zones.length * ZONE_COL_W }}
                 >
-                  <div style={{ width: TIME_COL_W }} className="shrink-0 border-r border-border/30 p-2" />
+                  <div style={{ width: TIME_COL_W }} className="shrink-0 border-r border-border/30 p-2 sticky left-0 z-30 bg-background/95" />
                   {zones.map((zone) => (
                     <div
                       key={zone.id}
@@ -1041,7 +1041,7 @@ export default function Home() {
                       >
                         <div
                           style={{ width: TIME_COL_W }}
-                          className="shrink-0 border-r border-border/20 flex items-start justify-center pt-1"
+                          className="shrink-0 border-r border-border/20 flex items-start justify-center pt-1 sticky left-0 z-10 bg-background/95"
                         >
                           <span className="text-[10px] font-mono text-muted-foreground">{time}</span>
                         </div>
