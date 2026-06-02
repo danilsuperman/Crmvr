@@ -942,7 +942,7 @@ export default function Home() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {viewMode === "map" ? (
           isLoadingZones || isLoadingBookings ? (
             <div className="flex items-center justify-center h-full">
@@ -972,7 +972,7 @@ export default function Home() {
           )
         ) : (
           /* Grid mode */
-          <div className="h-full overflow-auto bg-card/20">
+          <div className="absolute inset-0 overflow-auto overscroll-contain bg-card/20">
             {isLoadingZones || isLoadingBookings ? (
               <div className="flex items-center justify-center h-full">
                 <div className="flex flex-col items-center gap-3">
