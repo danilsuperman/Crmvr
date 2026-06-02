@@ -57,7 +57,7 @@ export default function Loyalty() {
   const [promos, setPromos] = useLocalStorage<PromoCode[]>("vrpark_promos", DEFAULT_PROMOS);
   const [cashbackEnabled, setCashbackEnabled] = useLocalStorage("vrpark_cashback_enabled", true);
   const [cashbackTexts, setCashbackTexts] = useLocalStorage<string[]>("vrpark_cashback_texts", DEFAULT_CASHBACK_TEXTS);
-  const [tab, setTab] = useState<"tiers" | "subscriptions" | "promos" | "cashback">("tiers");
+  const [tab, setTab] = useState<"tiers" | "promos" | "cashback">("tiers");
 
   // Promo dialog
   const [addPromoOpen, setAddPromoOpen] = useState(false);
@@ -162,7 +162,7 @@ export default function Loyalty() {
           </div>
           <div>
             <h1 className="text-sm font-bold leading-none">Система лояльности</h1>
-            <p className="text-[10px] text-muted-foreground mt-0.5">VIP · Подписки · Бонусы · Кешбек</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Уровни · Промокоды · Кешбек</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -176,21 +176,16 @@ export default function Loyalty() {
               <Plus className="w-3.5 h-3.5" /> Промокод
             </Button>
           )}
-          {tab === "subscriptions" && (
-            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setAddSubOpen(true)}>
-              <Plus className="w-3.5 h-3.5" /> Подписка
-            </Button>
-          )}
         </div>
       </header>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 md:px-6 pt-4">
         {[
-          { icon: Users,      label: "Клиентов",          value: totalClients, color: "text-blue-400" },
-          { icon: Crown,      label: "VIP участников",    value: tierDist[3],  color: "text-amber-400" },
-          { icon: Repeat,     label: "Активных подписок", value: 42,           color: "text-violet-400" },
-          { icon: TrendingUp, label: "Кешбек выдан",      value: "12 400 ₽",  color: "text-emerald-400" },
+          { icon: Users,      label: "Клиентов",       value: totalClients,     color: "text-blue-400" },
+          { icon: Crown,      label: "VIP участников", value: tierDist[3],      color: "text-amber-400" },
+          { icon: Zap,        label: "Активных уровней", value: tiers.filter(t => t.active).length, color: "text-violet-400" },
+          { icon: TrendingUp, label: "Кешбек выдан",   value: "12 400 ₽",       color: "text-emerald-400" },
         ].map((s, i) => (
           <div key={i} className="rounded-xl border border-border/50 bg-card/20 p-3">
             <div className="flex items-center gap-1.5 mb-1.5">
@@ -205,10 +200,9 @@ export default function Loyalty() {
       {/* Tab bar */}
       <div className="flex gap-1 px-4 md:px-6 pt-3 pb-0 shrink-0 overflow-x-auto">
         {([
-          { key: "tiers",         icon: Medal,      label: "Уровни" },
-          { key: "subscriptions", icon: Repeat,     label: "Подписки" },
-          { key: "promos",        icon: Percent,    label: "Промокоды" },
-          { key: "cashback",      icon: CreditCard, label: "Кешбек" },
+          { key: "tiers",    icon: Medal,      label: "Уровни" },
+          { key: "promos",   icon: Percent,    label: "Промокоды" },
+          { key: "cashback", icon: CreditCard, label: "Кешбек" },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap", tab === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/20")}>
             <t.icon className="w-3.5 h-3.5" /> {t.label}
@@ -264,30 +258,6 @@ export default function Loyalty() {
               </div>
             )}
           </>
-        )}
-
-        {/* SUBSCRIPTIONS */}
-        {tab === "subscriptions" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {subs.map(sub => (
-              <Card key={sub.id} className={cn("border-border/50 transition-all relative overflow-hidden", sub.active ? "bg-card/30" : "opacity-50")}>
-                <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: sub.color }} />
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold">{sub.name}</p>
-                    <Switch checked={sub.active} onCheckedChange={v => setSubs(ss => ss.map(x => x.id === sub.id ? { ...x, active: v } : x))} />
-                  </div>
-                  <p className="text-2xl font-black">{sub.price.toLocaleString()} ₽<span className="text-sm font-normal text-muted-foreground">/мес</span></p>
-                  <div className="space-y-1.5 text-[11px]">
-                    <div className="flex items-center gap-2"><Clock className="w-3 h-3 text-muted-foreground" /><span>{sub.hoursPerMonth}ч в месяц</span></div>
-                    {sub.bonusHours > 0 && <div className="flex items-center gap-2"><Gift className="w-3 h-3 text-emerald-400" /><span className="text-emerald-400">+{sub.bonusHours}ч бонус</span></div>}
-                    <div className="flex items-center gap-2"><Zap className="w-3 h-3 text-primary" /><span>Переносятся до 50%</span></div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">≈ {Math.round(sub.price / sub.hoursPerMonth)} ₽/ч (экономия до 20%)</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         )}
 
         {/* PROMOS */}
@@ -450,25 +420,6 @@ export default function Loyalty() {
           <div className="flex gap-2 mt-2">
             <Button variant="outline" className="flex-1 h-9" onClick={() => setAddPromoOpen(false)}>Отмена</Button>
             <Button className="flex-1 h-9" onClick={addPromo}>Создать</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Subscription Dialog */}
-      <Dialog open={addSubOpen} onOpenChange={setAddSubOpen}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader><DialogTitle>Новая подписка</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1"><Label className="text-xs">Название</Label><Input className="h-8 text-sm" placeholder="Премиум" value={subForm.name} onChange={e => setSubForm(f => ({ ...f, name: e.target.value }))} autoFocus /></div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1"><Label className="text-xs">Часов/мес</Label><Input type="number" className="h-8 text-sm" placeholder="12" value={subForm.hoursPerMonth} onChange={e => setSubForm(f => ({ ...f, hoursPerMonth: e.target.value }))} /></div>
-              <div className="space-y-1"><Label className="text-xs">Цена ₽/мес</Label><Input type="number" className="h-8 text-sm" placeholder="7500" value={subForm.price} onChange={e => setSubForm(f => ({ ...f, price: e.target.value }))} /></div>
-            </div>
-            <div className="space-y-1"><Label className="text-xs">Бонус часов</Label><Input type="number" className="h-8 text-sm" placeholder="0" value={subForm.bonusHours} onChange={e => setSubForm(f => ({ ...f, bonusHours: e.target.value }))} /></div>
-          </div>
-          <div className="flex gap-2 mt-2">
-            <Button variant="outline" className="flex-1 h-9" onClick={() => setAddSubOpen(false)}>Отмена</Button>
-            <Button className="flex-1 h-9" onClick={addSub}>Создать</Button>
           </div>
         </DialogContent>
       </Dialog>
